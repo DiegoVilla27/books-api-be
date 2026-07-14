@@ -2,11 +2,14 @@ import type { NextFunction, Request, Response } from "express";
 import { createBookSvc, deleteBookSvc, getAllBooksSvc, getBookByIdSvc, updateBookSvc } from "@modules/books/services";
 import AppError from "@core/errors";
 
-const getBooksCtrl = async (_: Request, res: Response, next: NextFunction) => {
+const getBooksCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const books = await getAllBooksSvc();
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
 
-    return res.status(200).json({ data: books });
+    const books = await getAllBooksSvc(page, limit);
+
+    return res.status(200).json(books);
   } catch (e) {
     console.log(`Error al obtener los libros: ${e}`);
     return next(e);

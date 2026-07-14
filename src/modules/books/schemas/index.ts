@@ -1,6 +1,21 @@
 import { z } from 'zod';
 import sanitizeText from '@core/utils/sanitizeHtml';
 
+export const GetBooksQuerySchema = z.object({
+  query: z.object({
+    page: z
+      .string()
+      .optional()
+      .default('1')
+      .transform((val) => Math.max(1, parseInt(val, 10))), // Mínimo página 1
+    limit: z
+      .string()
+      .optional()
+      .default('10')
+      .transform((val) => Math.max(1, Math.min(100, parseInt(val, 10)))), // Límite entre 1 y 100
+  }),
+});
+
 const CreateBookSchema = z.object({
   body: z.object({
     title: z

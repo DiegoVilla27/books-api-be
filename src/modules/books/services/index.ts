@@ -1,13 +1,36 @@
 import prisma from "@core/database/postgres";
-import { type IBook } from "@modules/books/data";
+import type { IPagination } from "@core/utils/pagination";
+import { type IBook } from "@modules/books/types";
 
 // Obtener todos los libros
-const getAllBooksSvc = async (): Promise<IBook[]> => {
+const getAllBooksSvc = async (page: number, limit: number): Promise<IPagination<IBook>> => {
   try {
-    return await prisma.book.findMany();
+    const skip = (page - 1) * limit;
+
+    const [totalItems, data] = await prisma.$transaction([
+      prisma.book.count(),
+      prisma.book.findMany({
+        skip,
+        take: limit,
+        orderBy: { id: 'asc' }, // Ordenamos para que la paginación sea consistente
+      }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      data,
+      pagination: {
+        totalItems,
+        totalPages,
+        currentPage: page,
+        limit,
+      },
+    };
+
   } catch (e) {
     console.log(e);
-    return [];
+    return { data: [], pagination: { totalItems: 0, totalPages: 0, currentPage: page, limit } };
   }
 }
 
