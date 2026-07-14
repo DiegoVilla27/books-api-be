@@ -11,7 +11,29 @@ const validateDataMiddleware = (schema: ZodObject<any>) => {
         params: req.params,
       });
 
-      req.body = parsed.body;
+      // Solo reemplazamos req.body si el esquema de Zod realmente lo validó
+      if (parsed.body !== undefined) {
+        req.body = parsed.body;
+      }
+      // Solo reemplazamos req.query si fue validado
+      if (parsed.query !== undefined) {
+        Object.defineProperty(req, 'query', {
+          value: parsed.query,
+          writable: true,
+          configurable: true,
+          enumerable: true
+        });
+      }
+      // Solo reemplazamos req.params si fue validado
+      if (parsed.params !== undefined) {
+        Object.defineProperty(req, 'params', {
+          value: parsed.params,
+          writable: true,
+          configurable: true,
+          enumerable: true
+        });
+      }
+
       next();
     } catch (error) {
       // ➔ Delegamos TODOS los errores (incluido Zod) al manejador global

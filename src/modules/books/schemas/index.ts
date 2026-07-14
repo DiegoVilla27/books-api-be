@@ -1,18 +1,12 @@
 import { z } from 'zod';
 import sanitizeText from '@core/utils/sanitizeHtml';
 
-export const GetBooksQuerySchema = z.object({
-  query: z.object({
-    page: z
+const BookByIdSchema = z.object({
+  params: z.object({
+    id: z
       .string()
-      .optional()
-      .default('1')
-      .transform((val) => Math.max(1, parseInt(val, 10))), // Mínimo página 1
-    limit: z
-      .string()
-      .optional()
-      .default('10')
-      .transform((val) => Math.max(1, Math.min(100, parseInt(val, 10)))), // Límite entre 1 y 100
+      .regex(/^\d+$/, 'El ID debe ser un número válido') // Solo números
+      .transform((val) => parseInt(val, 10)),            // Transforma a número
   }),
 });
 
@@ -29,9 +23,35 @@ const CreateBookSchema = z.object({
       .min(2, 'El autor debe tener al menos 2 caracteres')
       .max(100, 'El autor no puede superar los 100 caracteres')
       .transform((val) => sanitizeText(val)),
+
+    userId: z
+      .number('El ID del usuario es obligatorio'),
+  }),
+});
+
+const UpdateBookSchema = z.object({
+  body: z.object({
+    title: z
+      .string('El título es obligatorio')
+      .min(3, 'El título debe tener al menos 3 caracteres')
+      .max(100, 'El título no puede superar los 100 caracteres')
+      .transform((val) => sanitizeText(val))
+      .optional(),
+
+    author: z
+      .string('El autor es obligatorio')
+      .min(2, 'El autor debe tener al menos 2 caracteres')
+      .max(100, 'El autor no puede superar los 100 caracteres')
+      .transform((val) => sanitizeText(val))
+      .optional(),
+
+    userId: z
+      .number('El ID del usuario es obligatorio'),
   }),
 });
 
 export {
-  CreateBookSchema
+  CreateBookSchema,
+  UpdateBookSchema,
+  BookByIdSchema
 }

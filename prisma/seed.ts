@@ -9,24 +9,39 @@ const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+// Modifica la función main en prisma/seed.ts
 async function main() {
-  console.log('🌱 Iniciando el seeding de libros...');
+  console.log('🌱 Iniciando el seeding de datos...');
 
-  // Limpiamos los registros existentes (opcional)
+  // Limpiamos los registros existentes de ambas tablas
   await prisma.book.deleteMany();
+  await prisma.user.deleteMany();
 
-  // Generamos un array con 100 libros
+  // 1. Creamos un usuario de prueba primero
+  const defaultUser = await prisma.user.create({
+    data: {
+      name: 'Diego',
+      lastname: 'Villa',
+      email: 'diego@cabuweb.com',
+      password: 'password_encriptada_aqui', // En un futuro usaremos bcrypt aquí
+      age: 25,
+      role: 'ADMIN',
+    },
+  });
+
+  // 2. Generamos los 100 libros asignando el userId de ese usuario
   const booksData = Array.from({ length: 100 }, (_, i) => ({
     title: `Libro de Prueba #${i + 1}`,
     author: `Autor Ficticio #${i + 1}`,
+    userId: defaultUser.id, // <-- Enlazar con el usuario creado
   }));
 
-  // Insertamos los 100 libros en la base de datos
+  // 3. Insertamos los 100 libros
   await prisma.book.createMany({
     data: booksData,
   });
 
-  console.log('✅ ¡Seeding completado con éxito! Se insertaron 100 libros.');
+  console.log('✅ Seeding completado: 1 usuario y 100 libros creados.');
 }
 
 main()

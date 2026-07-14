@@ -1,14 +1,18 @@
-import { Router } from "express";
-import { createBookCtrl, deleteBookCtrl, getBooksCtrl, getBookByIdCtrl, updateBookCtrl } from "@modules/books/controllers";
 import validateDataMiddleware from "@core/middlewares/validateDataZod";
-import { CreateBookSchema } from "@modules/books/schemas";
+import { GetQuerySchema } from "@core/utils/pagination";
+import { createBookCtrl, deleteBookCtrl, getBookByIdCtrl, getBooksCtrl, updateBookCtrl } from "@modules/books/controllers";
+import { BookByIdSchema, CreateBookSchema, UpdateBookSchema } from "@modules/books/schemas";
+import { Router } from "express";
 
 const bookRoutes = Router();
 
-bookRoutes.get('/books', getBooksCtrl);
-bookRoutes.get('/books/:id', getBookByIdCtrl);
+bookRoutes.get('/books', validateDataMiddleware(GetQuerySchema), getBooksCtrl);
+bookRoutes.get('/books/:id', validateDataMiddleware(BookByIdSchema), getBookByIdCtrl);
 bookRoutes.post('/books', validateDataMiddleware(CreateBookSchema), createBookCtrl);
-bookRoutes.patch('/books/:id', validateDataMiddleware(CreateBookSchema), updateBookCtrl);
-bookRoutes.delete('/books/:id', deleteBookCtrl);
+bookRoutes.patch('/books/:id', [
+  validateDataMiddleware(BookByIdSchema),
+  validateDataMiddleware(UpdateBookSchema)
+], updateBookCtrl);
+bookRoutes.delete('/books/:id', validateDataMiddleware(BookByIdSchema), deleteBookCtrl);
 
 export default bookRoutes;
