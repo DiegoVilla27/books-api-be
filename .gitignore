@@ -1,0 +1,3 @@
+node_modules
+
+/src/core/database/postgres/generated/prisma

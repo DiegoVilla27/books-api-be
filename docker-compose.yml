@@ -1,0 +1,14 @@
+version: "3.8"
+services:
+  postgres:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: books_db
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
