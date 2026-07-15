@@ -1,4 +1,4 @@
-import { type BookEntity } from '../entity';
+import type { BookEntity } from "@modules/books/entities";
 
 /**
  * DTO que define la estructura de salida de los Libros en las respuestas JSON de la API.

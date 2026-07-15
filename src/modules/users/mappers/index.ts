@@ -1,6 +1,6 @@
 import { format } from "date-fns";
-import type { UserModel } from "../model";
-import type { UserResponseDTO } from "./response";
+import type { UserResponseDTO } from "../dtos/response";
+import type { UserModel } from "../models";
 
 /**
  * Tipo que representa el modelo de usuario de base de datos (`UserModel`)
@@ -40,5 +40,5 @@ export const toUserResponseDTO = (user: UserBooks): UserResponseDTO => ({
  * @param users - Array de registros `UserBooks`.
  * @returns Array de DTOs `UserResponseDTO`.
  */
-export const toUserResponseDTOs = (users: UserBooks[]): UserResponseDTO[] => 
+export const toUserResponseDTOs = (users: UserBooks[]): UserResponseDTO[] =>
   users.map((user) => toUserResponseDTO(user));

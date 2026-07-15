@@ -1,6 +1,6 @@
 import { format } from "date-fns";
-import type { BookModel } from "../model";
-import type { BookResponseDTO } from "./response";
+import type { BookModel } from "../models";
+import type { BookResponseDTO } from "../dtos/response";
 
 /**
  * Tipo interno para representar un objeto de libro de base de datos (`BookModel`)
@@ -42,5 +42,5 @@ export const toBookResponseDTO = (book: BookUser): BookResponseDTO => ({
  * @param books - Array de objetos `BookUser`.
  * @returns Array de objetos `BookResponseDTO`.
  */
-export const toBookResponseDTOs = (books: BookUser[]): BookResponseDTO[] => 
+export const toBookResponseDTOs = (books: BookUser[]): BookResponseDTO[] =>
   books.map((book) => toBookResponseDTO(book));

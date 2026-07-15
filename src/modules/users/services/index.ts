@@ -1,9 +1,9 @@
 import prisma from "@core/database/postgres";
 import type { IPagination } from "@core/types/pagination";
 import { removeDataUndefined } from "@core/utils/removeDataUndefined";
-import { toUserResponseDTO, toUserResponseDTOs } from "../data/dtos/mapper";
-import type { CreateUserRequestDTO, UpdateUserRequestDTO } from "../data/dtos/request";
-import type { UserResponseDTO } from "../data/dtos/response";
+import { toUserResponseDTO, toUserResponseDTOs } from "../mappers";
+import type { CreateUserRequestDTO, UpdateUserRequestDTO } from "../dtos/request";
+import type { UserResponseDTO } from "../dtos/response";
 import AppError from "@core/errors";
 import bcrypt from "bcrypt";
 

@@ -1,4 +1,4 @@
-import { type UserEntity } from '../entity';
+import { type UserEntity } from '../../entities';
 
 /**
  * DTO que define la estructura del objeto Usuario para respuestas de la API.

@@ -1,4 +1,4 @@
-import type { UserEntity } from "@modules/users/data/entity";
+import type { UserEntity } from "@modules/users/entities";
 
 /**
  * Entidad de dominio que representa un Libro.

@@ -1,8 +1,8 @@
 import prisma from "@core/database/postgres";
 import type { IPagination } from "@core/types/pagination";
-import { toBookResponseDTO, toBookResponseDTOs } from "../data/dtos/mapper";
-import type { CreateBookRequestDTO, UpdateBookRequestDTO } from "../data/dtos/request";
-import type { BookResponseDTO } from "../data/dtos/response";
+import { toBookResponseDTO, toBookResponseDTOs } from "../mappers";
+import type { CreateBookRequestDTO, UpdateBookRequestDTO } from "../dtos/request";
+import type { BookResponseDTO } from "../dtos/response";
 import { removeDataUndefined } from "@core/utils/removeDataUndefined";
 
 /**

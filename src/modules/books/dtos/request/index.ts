@@ -1,5 +1,5 @@
+import type { CreateBookSchema, UpdateBookSchema } from '@modules/books/schemas';
 import { z } from 'zod';
-import { CreateBookSchema, UpdateBookSchema } from '../../schemas';
 
 /**
  * Tipo que representa los datos necesarios en el cuerpo de una petición
