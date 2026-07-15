@@ -2,7 +2,13 @@ import AppError from '@core/errors';
 import type { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
 
-// Formato de respuesta para Entorno de Desarrollo
+/**
+ * Envía una respuesta detallada de error en entornos de desarrollo.
+ * Muestra el código de error, el stack trace completo y la causa.
+ * 
+ * @param err - Objeto de error capturado.
+ * @param res - Objeto de respuesta de Express.
+ */
 const sendErrorDev = (err: any, res: Response) => {
   res.status(err.statusCode || 500).json({
     status: err.status || 'error',
@@ -12,7 +18,14 @@ const sendErrorDev = (err: any, res: Response) => {
   });
 };
 
-// En la respuesta de producción, si el error tiene sub-errores (como Zod), los mostramos
+/**
+ * Envía una respuesta de error controlada y amigable en entornos de producción.
+ * Si el error es operacional, muestra el mensaje de error. Si es inesperado,
+ * oculta los detalles de implementación para no exponer información sensible.
+ * 
+ * @param err - Objeto de error capturado.
+ * @param res - Objeto de respuesta de Express.
+ */
 const sendErrorProd = (err: any, res: Response) => {
   if (err.isOperational) {
     res.status(err.statusCode).json({
@@ -29,7 +42,13 @@ const sendErrorProd = (err: any, res: Response) => {
   }
 };
 
-// Traduce el error estructurado de Zod a nuestro formato estándar
+/**
+ * Traduce un error estructurado de validación de Zod a una instancia estándar de `AppError`.
+ * Agrupa los campos fallidos en un objeto formateado llave-valor.
+ * 
+ * @param err - Instancia de error lanzada por Zod.
+ * @returns Instancia mapeada de `AppError` con estado 400.
+ */
 const handleZodError = (err: ZodError) => {
   const formattedErrors: Record<string, string> = {};
 
@@ -44,16 +63,35 @@ const handleZodError = (err: ZodError) => {
   return appError;
 };
 
-// Traductores de errores conocidos de base de datos
+/**
+ * Traduce errores de violación de restricción de clave única (Unique Constraint) de Prisma (código P2002).
+ * 
+ * @returns Instancia mapeada de `AppError` con estado 409 (Conflict).
+ */
 const handlePrismaUniqueConstraintError = () => {
   return new AppError('El registro ya existe (violación de restricción única).', 409);
 };
 
+/**
+ * Traduce errores de conversión de tipos de Mongoose (Cast Error) a un formato amigable.
+ * 
+ * @param err - Objeto de error original de Mongoose.
+ * @returns Instancia mapeada de `AppError` con estado 400.
+ */
 const handleMongooseCastError = (err: any) => {
   return new AppError(`Valor inválido "${err.value}" para el campo "${err.path}".`, 400);
 };
 
-// Middleware de Express (debe tener exactamente 4 parámetros)
+/**
+ * Middleware centralizado de Express para la gestión de errores.
+ * Captura excepciones no controladas y errores controlados de negocio, los traduce
+ * al formato unificado de la aplicación y responde al cliente según el entorno actual.
+ * 
+ * @param err - Excepción capturada en el pipeline de Express.
+ * @param req - Objeto de petición de Express.
+ * @param res - Objeto de respuesta de Express.
+ * @param next - Función Next de Express.
+ */
 const globalErrorHandler = (
   err: any,
   req: Request,

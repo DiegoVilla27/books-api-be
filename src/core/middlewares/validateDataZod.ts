@@ -1,7 +1,17 @@
-// En src/core/middlewares/validateDataZod.ts
 import type { NextFunction, Request, Response } from 'express';
 import { ZodObject } from 'zod';
 
+/**
+ * Generador de middleware para validación de datos utilizando esquemas de Zod.
+ * Valida de forma asíncrona el `body`, `query` y `params` de la petición HTTP entrante.
+ * 
+ * Modifica el objeto de petición (`req`) reescribiendo de forma segura las propiedades
+ * validadas, aplicando transformaciones y filtrando propiedades adicionales no especificadas (strip).
+ * Utiliza `Object.defineProperty` para sobreescribir con seguridad campos de solo lectura como `query` y `params`.
+ * 
+ * @param schema - Esquema de Zod de tipo ZodObject que valida la estructura `{ body?, query?, params? }`.
+ * @returns Un middleware de Express listo para ser acoplado en las rutas del sistema.
+ */
 const validateDataMiddleware = (schema: ZodObject<any>) => {
   return async (req: Request, _: Response, next: NextFunction): Promise<void> => {
     try {

@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import sanitizeText from '@core/utils/sanitizeHtml';
 
+/**
+ * Esquema de validación para solicitudes que requieren un ID de libro en los parámetros de ruta (`req.params`).
+ * Valida que el ID sea una cadena compuesta por dígitos y lo transforma a un tipo numérico de JavaScript.
+ */
 const BookByIdSchema = z.object({
   params: z.object({
     id: z
@@ -10,6 +14,12 @@ const BookByIdSchema = z.object({
   }),
 });
 
+/**
+ * Esquema de validación para la creación de un libro (`POST /books`).
+ * Valida los datos requeridos en el cuerpo (`req.body`), eliminando etiquetas HTML de títulos y autores,
+ * y requiriendo un ID numérico válido de usuario propietario (`userId`).
+ * Utiliza `.strict()` para rechazar campos no especificados.
+ */
 const CreateBookSchema = z.object({
   body: z.object({
     title: z
@@ -26,9 +36,15 @@ const CreateBookSchema = z.object({
 
     userId: z
       .number('El ID del usuario es obligatorio'),
-  }),
+  }).strict(),
 });
 
+/**
+ * Esquema de validación para la actualización parcial de un libro (`PATCH /books/:id`).
+ * Todos los campos del cuerpo (`req.body`) son opcionales. Aplica las mismas validaciones
+ * y desinfecciones HTML que la creación.
+ * Utiliza `.strict()` para rechazar campos desconocidos.
+ */
 const UpdateBookSchema = z.object({
   body: z.object({
     title: z
@@ -47,7 +63,7 @@ const UpdateBookSchema = z.object({
 
     userId: z
       .number('El ID del usuario es obligatorio'),
-  }),
+  }).strict(),
 });
 
 export {

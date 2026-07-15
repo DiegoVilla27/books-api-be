@@ -1,6 +1,10 @@
 import sanitizeText from '@core/utils/sanitizeHtml';
 import { z } from 'zod';
 
+/**
+ * Esquema para validar solicitudes que contengan un identificador de usuario (`req.params.id`).
+ * Transforma el string numérico de los parámetros de ruta en un valor numérico entero.
+ */
 const UserByIdSchema = z.object({
   params: z.object({
     id: z
@@ -10,6 +14,12 @@ const UserByIdSchema = z.object({
   }),
 });
 
+/**
+ * Esquema de validación para registrar un usuario nuevo (`POST /users`).
+ * Valida de forma estricta los campos del cuerpo de la petición. Aplica saneado HTML
+ * a los campos de texto `name`, `lastname`, `email` y `password` para evitar XSS.
+ * Valida la mayoría de edad (mínimo 18 años).
+ */
 const CreateUserSchema = z.object({
   body: z.object({
     name: z
@@ -40,6 +50,11 @@ const CreateUserSchema = z.object({
   }).strict(),
 });
 
+/**
+ * Esquema de validación para modificar parcialmente a un usuario (`PATCH /users/:id`).
+ * Todos los campos del cuerpo de la petición son opcionales. Utiliza el método `.strict()`
+ * para rechazar cualquier propiedad desconocida o no permitida.
+ */
 const UpdateUserSchema = z.object({
   body: z.object({
     name: z

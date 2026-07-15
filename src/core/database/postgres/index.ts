@@ -2,16 +2,29 @@ import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from "@core/database/postgres/generated/prisma/client";
 
-// Extraemos la URL de conexión
+/**
+ * Cadena de conexión de PostgreSQL obtenida de las variables de entorno.
+ */
 const connectionString = process.env.POSTGRES_URI;
 
-// 1. Inicializamos el Pool de conexiones nativo de Node-Postgres (pg)
+/**
+ * Pool de conexiones nativo de Node-Postgres (`pg`).
+ * Se encarga de gestionar el ciclo de vida y la reutilización de las conexiones físicas a PostgreSQL.
+ */
 const pool = new Pool({ connectionString });
 
-// 2. Creamos el adaptador de Prisma para pg
+/**
+ * Adaptador de base de datos de Prisma para `pg`.
+ * Permite a Prisma Client v7 interactuar con PostgreSQL de manera eficiente
+ * delegando la gestión de conexiones al Pool de `pg`.
+ */
 const adapter = new PrismaPg(pool);
 
-// 3. Pasamos el adaptador al constructor de PrismaClient
+/**
+ * Cliente global inicializado de Prisma.
+ * Configurado con el adaptador de controlador Pg para PostgreSQL.
+ * Debe ser importado en los servicios para realizar operaciones sobre la base de datos.
+ */
 const prisma = new PrismaClient({ adapter });
 
 export default prisma;
