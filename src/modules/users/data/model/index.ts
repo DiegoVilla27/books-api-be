@@ -1,6 +1,4 @@
-import type { IBook } from "@modules/books/types";
-
-interface IUser {
+interface UserModel {
   id: number;
   name: string;
   lastname: string;
@@ -8,9 +6,12 @@ interface IUser {
   password: string;
   age: number;
   role: 'USER' | 'ADMIN';
-  books: IBook[];
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
 }
 
 export {
-  type IUser
+  type UserModel
 };

@@ -1,5 +1,5 @@
 import prisma from "@core/database/postgres";
-import type { IPagination } from "@core/utils/pagination";
+import type { IPagination } from "@core/types/pagination";
 import { type IBook } from "@modules/books/types";
 
 // Obtener todos los libros

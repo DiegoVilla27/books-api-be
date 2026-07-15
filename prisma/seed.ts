@@ -23,9 +23,8 @@ async function main() {
       name: 'Diego',
       lastname: 'Villa',
       email: 'diego@cabuweb.com',
-      password: 'password_encriptada_aqui', // En un futuro usaremos bcrypt aquí
-      age: 25,
-      role: 'ADMIN',
+      password: '1234', // En un futuro usaremos bcrypt aquí
+      age: 25
     },
   });
 

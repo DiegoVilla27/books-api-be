@@ -23,6 +23,11 @@ model Book {
   user      User     @relation(fields: [userId], references: [id])
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 model User {
   id        Int       @id @default(autoincrement())
   name      String
@@ -30,9 +35,10 @@ model User {
   email     String    @unique
   password  String
   age       Int
-  role      String    @default("USER")
+  role      Role    @default(USER)
+  isActive  Boolean   @default(true)
+  books     Book[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @default(now()) @updatedAt
   deletedAt DateTime?
-  books     Book[]
 }

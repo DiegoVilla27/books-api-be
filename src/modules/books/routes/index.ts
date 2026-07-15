@@ -1,5 +1,5 @@
 import validateDataMiddleware from "@core/middlewares/validateDataZod";
-import { GetQuerySchema } from "@core/utils/pagination";
+import { GetQuerySchema } from "@core/types/pagination";
 import { createBookCtrl, deleteBookCtrl, getBookByIdCtrl, getBooksCtrl, updateBookCtrl } from "@modules/books/controllers";
 import { BookByIdSchema, CreateBookSchema, UpdateBookSchema } from "@modules/books/schemas";
 import { Router } from "express";

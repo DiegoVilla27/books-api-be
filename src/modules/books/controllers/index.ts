@@ -1,5 +1,5 @@
 import AppError from "@core/errors";
-import type { PaginationQuery } from "@core/utils/pagination";
+import type { PaginationQuery } from "@core/types/pagination";
 import { createBookSvc, deleteBookSvc, getAllBooksSvc, getBookByIdSvc, updateBookSvc } from "@modules/books/services";
 import type { NextFunction, Request, Response } from "express";
 
