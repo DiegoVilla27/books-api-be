@@ -1,13 +1,15 @@
 import { Router } from "express";
 import bookRoutes from "@modules/books/routes";
 import userRoutes from "@modules/users/routes";
+import authRoutes from "@modules/auth/routes";
 
 /**
  * Enrutador secundario que agrupa los módulos de la aplicación.
  */
 const router = Router();
 
-// Rutas de books y users acopladas al router secundario
+// Rutas de auth, books y users acopladas al router secundario
+router.use(authRoutes);
 router.use(bookRoutes);
 router.use(userRoutes);
 

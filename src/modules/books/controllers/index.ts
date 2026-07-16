@@ -68,6 +68,7 @@ const createBookCtrl = async (req: Request, res: Response, next: NextFunction) =
 
 /**
  * Controlador para realizar la actualización parcial (PATCH) de un libro existente.
+ * Envía el objeto completo del usuario autenticado (`req.user`) al servicio para validar autorizaciones.
  * 
  * @param req - Objeto de petición de Express. Espera el `id` en `params` y los campos a actualizar en el `body` (validados por `UpdateBookRequestDTO`).
  * @param res - Objeto de respuesta de Express. Retorna el libro actualizado en formato `BookResponseDTO`.
@@ -76,8 +77,9 @@ const createBookCtrl = async (req: Request, res: Response, next: NextFunction) =
 const updateBookCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params as unknown as { id: number };
+    const requestingUser = req.user!;
 
-    const updatedBook = await updateBookSvc(id, req.body);
+    const updatedBook = await updateBookSvc(id, req.body, requestingUser);
 
     return res.status(200).json(updatedBook);
   } catch (e) {
@@ -88,18 +90,20 @@ const updateBookCtrl = async (req: Request, res: Response, next: NextFunction) =
 
 /**
  * Controlador para eliminar físicamente un libro de la base de datos.
+ * Envía el objeto del usuario autenticado al servicio para asegurar que solo el dueño o un ADMIN realicen la acción.
  * 
  * @param req - Objeto de petición de Express. Espera el `id` en los parámetros de la ruta.
  * @param res - Objeto de respuesta de Express. Retorna el objeto del libro eliminado en formato `BookResponseDTO`.
  * @param next - Función de Express para delegar errores.
  * 
- * @throws {AppError} Retorna un error 404 si el libro que se desea eliminar no existe.
+ * @throws {AppError} Retorna un error 404 si el libro que se desea eliminar no existe o 403 si carece de autorización.
  */
 const deleteBookCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params as unknown as { id: number };
+    const requestingUser = req.user!;
 
-    const deleteBook = await deleteBookSvc(id);
+    const deleteBook = await deleteBookSvc(id, requestingUser);
 
     if (!deleteBook) return next(new AppError('Libro no encontrado', 404));
 

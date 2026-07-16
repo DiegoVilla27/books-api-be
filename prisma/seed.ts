@@ -1,7 +1,8 @@
+import 'dotenv/config';
 import { PrismaClient } from '../src/core/database/postgres/generated/prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
-import 'dotenv/config';
+import bcrypt from "bcrypt";
 
 // Inicializamos la conexión tal como lo haces en tu app
 const connectionString = process.env.POSTGRES_URI;
@@ -23,8 +24,9 @@ async function main() {
       name: 'Diego',
       lastname: 'Villa',
       email: 'diego@cabuweb.com',
-      password: '1234', // En un futuro usaremos bcrypt aquí
-      age: 25
+      password: await bcrypt.hash('1234', 10), // En un futuro usaremos bcrypt aquí
+      age: 25,
+      role: "ADMIN"
     },
   });
 

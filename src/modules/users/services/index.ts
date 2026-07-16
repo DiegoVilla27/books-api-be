@@ -1,32 +1,55 @@
 import prisma from "@core/database/postgres";
+import AppError from "@core/errors";
 import type { IPagination } from "@core/types/pagination";
 import { removeDataUndefined } from "@core/utils/removeDataUndefined";
-import { toUserResponseDTO, toUserResponseDTOs } from "../mappers";
+import bcrypt from "bcrypt";
 import type { CreateUserRequestDTO, UpdateUserRequestDTO } from "../dtos/request";
 import type { UserResponseDTO } from "../dtos/response";
-import AppError from "@core/errors";
-import bcrypt from "bcrypt";
+import { toUserResponseDTO, toUserResponseDTOs } from "../mappers";
+
+/**
+ * Servicio para obtener un listado resumido e incondicional de todos los usuarios
+ * (principalmente para selectores en formularios de creación y edición).
+ * 
+ * @returns Promesa que resuelve a un arreglo de objetos con id, nombre y apellido.
+ */
+const getUsersLookupSvc = async (): Promise<Pick<UserResponseDTO, 'id' | 'name' | 'lastname'>[]> => {
+  return await prisma.user.findMany({
+    select: {
+      id: true,
+      name: true,
+      lastname: true
+    },
+    orderBy: {
+      name: 'asc'
+    }
+  });
+}
 
 /**
  * Servicio para obtener una lista paginada de todos los usuarios.
- * Realiza una consulta paralela en una transacción de Prisma. Incluye el recuento
- * de libros creados por cada usuario (`_count`).
+ * Aplica reglas de filtrado según el rol del usuario que realiza la consulta.
  * 
- * @param page - Número de página.
+ * @param page - Número de página actual.
  * @param limit - Cantidad máxima de registros por página.
+ * @param requestingRole - Rol del usuario que realiza la petición ('ADMIN' o 'USER').
  * @returns Promesa que resuelve a un objeto paginado de tipo `UserResponseDTO`.
  */
-const getAllUsersSvc = async (page: number, limit: number): Promise<IPagination<UserResponseDTO>> => {
+const getAllUsersSvc = async (page: number, limit: number, requestingRole: string): Promise<IPagination<UserResponseDTO>> => {
   const skip = (page - 1) * limit;
+
+  // Si quien consulta es USER, solo puede ver otros usuarios con rol USER (no los ADMIN)
+  const roleFilter = requestingRole !== 'ADMIN' ? { role: 'USER' as const } : {};
 
   const [users, totalItems] = await prisma.$transaction([
     prisma.user.findMany({
       skip,
       take: limit,
-      orderBy: { id: 'asc' }, // Ordenamos para que la paginación sea consistente
-      include: { _count: { select: { books: true } } }
+      orderBy: { id: 'asc' },
+      where: roleFilter,
+      include: { _count: { select: { books: true } } },
     }),
-    prisma.user.count()
+    prisma.user.count({ where: roleFilter })
   ]);
 
   const totalPages = Math.ceil(totalItems / limit);
@@ -44,12 +67,13 @@ const getAllUsersSvc = async (page: number, limit: number): Promise<IPagination<
 
 /**
  * Servicio para obtener un usuario específico por su ID único.
- * Carga el recuento de libros asociados al usuario.
+ * Carga el recuento de libros asociados y restringe el acceso de usuarios estándar a perfiles administradores.
  * 
- * @param id - Identificador del usuario.
- * @returns Promesa que resuelve a un `UserResponseDTO` si el usuario existe, o `null` si no se encuentra.
+ * @param id - Identificador único del usuario a consultar.
+ * @param requestingRole - Rol del usuario que realiza la consulta.
+ * @returns Promesa que resuelve a un `UserResponseDTO` si el usuario existe y está autorizado, o `null`.
  */
-const getUserByIdSvc = async (id: number): Promise<UserResponseDTO | null> => {
+const getUserByIdSvc = async (id: number, requestingRole: string): Promise<UserResponseDTO | null> => {
   const userFind = await prisma.user.findUnique({
     where: { id },
     include: { _count: { select: { books: true } } }
@@ -57,13 +81,16 @@ const getUserByIdSvc = async (id: number): Promise<UserResponseDTO | null> => {
 
   if (!userFind) return null;
 
+  // Un USER no puede ver el perfil de un ADMIN aunque adivine el ID
+  if (userFind.role === 'ADMIN' && requestingRole !== 'ADMIN') return null;
+
   return toUserResponseDTO(userFind);
 }
 
 /**
  * Servicio para crear y registrar un nuevo usuario en la base de datos.
  * Comprueba que el correo electrónico no esté registrado previamente.
- * Encripta la contraseña de forma asíncrona utilizando `bcrypt` antes de guardarla.
+ * Encripta la contraseña utilizando `bcrypt` antes de guardarla.
  * 
  * @param user - DTO con los datos del usuario requeridos en la creación.
  * @returns Promesa que resuelve a los datos del usuario creado en formato `UserResponseDTO`.
@@ -87,14 +114,21 @@ const createUserSvc = async (user: CreateUserRequestDTO): Promise<UserResponseDT
 
 /**
  * Servicio para actualizar parcialmente la información de un usuario existente.
- * Limpia campos con valor `undefined` antes de ejecutar el update.
+ * Realiza una comprobación previa de existencia del usuario y limpia los campos con valor `undefined`.
  * 
  * @param id - Identificador único del usuario a actualizar.
  * @param user - DTO que contiene de manera opcional las propiedades que se desean modificar.
- * @returns Promesa que resuelve a la representación del usuario actualizado en `UserResponseDTO`.
- * @throws {PrismaClientKnownRequestError} Si el ID especificado no pertenece a ningún usuario.
+ * @returns Promesa que devuelve la representación del usuario actualizado en `UserResponseDTO`.
+ * @throws {AppError} Si el ID especificado no pertenece a ningún usuario (404).
  */
 const updateUserSvc = async (id: number, user: UpdateUserRequestDTO): Promise<UserResponseDTO> => {
+  // Verificar existencia antes del update para evitar errores de Prisma
+  const existingUser = await prisma.user.findUnique({ where: { id } });
+
+  if (!existingUser) {
+    throw new AppError("Usuario no encontrado", 404);
+  }
+
   const userClean = removeDataUndefined(user);
   const userUpdated = await prisma.user.update({
     where: { id },
@@ -109,11 +143,18 @@ const updateUserSvc = async (id: number, user: UpdateUserRequestDTO): Promise<Us
  * Servicio para inhabilitar lógicamente a un usuario en el sistema.
  * Establece el atributo `isActive` a `false`.
  * 
- * @param id - Identificador del usuario a inhabilitar.
+ * @param id - Identificador único del usuario a inhabilitar.
  * @returns Promesa con los datos formateados del usuario inhabilitado (`UserResponseDTO`).
- * @throws {PrismaClientKnownRequestError} Si el ID especificado no se encuentra.
+ * @throws {AppError} Si el ID especificado no se encuentra (404).
  */
 const deleteUserSvc = async (id: number): Promise<UserResponseDTO> => {
+  // Verificar existencia antes del update para evitar errores de Prisma
+  const existingUser = await prisma.user.findUnique({ where: { id } });
+
+  if (!existingUser) {
+    throw new AppError("Usuario no encontrado", 404);
+  }
+
   const userDeleted = await prisma.user.update({
     where: { id },
     data: { isActive: false },
@@ -123,4 +164,4 @@ const deleteUserSvc = async (id: number): Promise<UserResponseDTO> => {
   return toUserResponseDTO(userDeleted);
 }
 
-export { createUserSvc, deleteUserSvc, getAllUsersSvc, getUserByIdSvc, updateUserSvc };
+export { getUsersLookupSvc, createUserSvc, deleteUserSvc, getAllUsersSvc, getUserByIdSvc, updateUserSvc };

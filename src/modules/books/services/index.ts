@@ -1,9 +1,10 @@
 import prisma from "@core/database/postgres";
+import AppError from "@core/errors";
 import type { IPagination } from "@core/types/pagination";
-import { toBookResponseDTO, toBookResponseDTOs } from "../mappers";
+import { removeDataUndefined } from "@core/utils/removeDataUndefined";
 import type { CreateBookRequestDTO, UpdateBookRequestDTO } from "../dtos/request";
 import type { BookResponseDTO } from "../dtos/response";
-import { removeDataUndefined } from "@core/utils/removeDataUndefined";
+import { toBookResponseDTO, toBookResponseDTOs } from "../mappers";
 
 /**
  * Servicio para obtener una lista paginada de libros.
@@ -100,14 +101,27 @@ const createBookSvc = async (book: CreateBookRequestDTO): Promise<BookResponseDT
 
 /**
  * Servicio para actualizar parcialmente las propiedades de un libro existente.
+ * Valida que el libro exista, y que el usuario solicitante sea el propietario del registro o administrador.
  * Remueve previamente cualquier propiedad `undefined` para evitar fallos de persistencia.
  * 
  * @param id - Identificador único del libro a modificar.
  * @param book - DTO con los campos que se desean actualizar de manera opcional.
+ * @param requestingUser - Datos del usuario que realiza la petición (para comprobar autorizaciones).
  * @returns Promesa que devuelve el `BookResponseDTO` del libro actualizado.
- * @throws {PrismaClientKnownRequestError} Si el ID especificado no corresponde a ningún libro.
+ * @throws {AppError} 404 si el libro no existe.
+ * @throws {AppError} 403 si el usuario no es el propietario ni un administrador.
  */
-const updateBookSvc = async (id: number, book: UpdateBookRequestDTO): Promise<BookResponseDTO> => {
+const updateBookSvc = async (id: number, book: UpdateBookRequestDTO, requestingUser: { id: number, email: string, role: string }): Promise<BookResponseDTO> => {
+  const existingBook = await prisma.book.findUnique({ where: { id } });
+
+  if (!existingBook) {
+    throw new AppError("Libro no encontrado", 404);
+  }
+
+  if (existingBook.userId !== requestingUser.id && requestingUser.role !== 'ADMIN') {
+    throw new AppError("No tienes permisos para modificar este libro", 403); // 403 Forbidden
+  }
+
   const bookClean = removeDataUndefined(book);
 
   const bookUpdated = await prisma.book.update({
@@ -129,12 +143,26 @@ const updateBookSvc = async (id: number, book: UpdateBookRequestDTO): Promise<Bo
 
 /**
  * Servicio para eliminar físicamente un libro de la base de datos relacional.
+ * Valida que el libro exista, y que el usuario solicitante sea el propietario o administrador.
  * 
  * @param id - Identificador único del libro a eliminar.
+ * @param requestingUser - Datos del usuario que realiza la petición (para comprobar autorizaciones).
  * @returns Promesa que resuelve a la representación del libro eliminado en formato `BookResponseDTO`.
- * @throws {PrismaClientKnownRequestError} Si el ID especificado no existe.
+ * @throws {AppError} 404 si el libro no existe.
+ * @throws {AppError} 403 si el usuario no es el propietario ni un administrador.
  */
-const deleteBookSvc = async (id: number): Promise<BookResponseDTO> => {
+const deleteBookSvc = async (id: number, requestingUser: { id: number, email: string, role: string }): Promise<BookResponseDTO> => {
+
+  const existingBook = await prisma.book.findUnique({ where: { id } });
+
+  if (!existingBook) {
+    throw new AppError("Libro no encontrado", 404);
+  }
+
+  if (existingBook.userId !== requestingUser.id && requestingUser.role !== 'ADMIN') {
+    throw new AppError("No tienes permisos para eliminar este libro", 403);
+  }
+
   const bookDeleted = await prisma.book.delete({
     where: { id },
     include: {

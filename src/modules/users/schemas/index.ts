@@ -47,6 +47,9 @@ const CreateUserSchema = z.object({
     role: z
       .enum(['USER', 'ADMIN'])
       .default('USER'),
+    isActive: z
+      .boolean()
+      .default(true),
   }).strict(),
 });
 
@@ -86,7 +89,9 @@ const UpdateUserSchema = z.object({
       .optional(),
     role: z
       .enum(['USER', 'ADMIN'])
-      .default('USER')
+      .optional(), // Sin .default(): si no se envía, queda undefined y Prisma no lo sobreescribe
+    isActive: z
+      .boolean()
       .optional(),
   }).strict(),
 });

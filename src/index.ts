@@ -26,7 +26,7 @@ app.use(helmet()); // Middleware para asegurar la app de diferentes ataques
 app.use(express.json({ limit: '10kb' })); // Middleware para entender formato json en request and response y limitar tamaño
 
 /** Listado de orígenes CORS permitidos para interactuar con la API */
-const allowedOrigins = ['http://localhost:3000', 'https://miwebprofesional.com'];
+const allowedOrigins = ['http://localhost:3000', 'http://localhost:4200'];
 
 app.use(cors({
   origin: (origin, callback) => {

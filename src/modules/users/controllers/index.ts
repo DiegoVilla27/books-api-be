@@ -1,10 +1,30 @@
 import AppError from "@core/errors";
 import type { PaginationQuery } from "@core/types/pagination";
-import { createUserSvc, deleteUserSvc, getAllUsersSvc, getUserByIdSvc, updateUserSvc } from "@modules/users/services";
+import { createUserSvc, deleteUserSvc, getAllUsersSvc, getUserByIdSvc, getUsersLookupSvc, updateUserSvc } from "@modules/users/services";
 import type { NextFunction, Request, Response } from "express";
 
 /**
+ * Controlador para obtener un listado simplificado de todos los usuarios.
+ * Retorna únicamente el ID, nombre y apellido para alimentar selectores y listas de asignación.
+ * 
+ * @param _ - Objeto de petición de Express (no utilizado).
+ * @param res - Objeto de respuesta de Express. Retorna el listado de lookup con código 200.
+ * @param next - Función de Express para delegar errores.
+ */
+const getUsersLookupCtrl = async (_: Request, res: Response, next: NextFunction) => {
+  try {
+    const users = await getUsersLookupSvc();
+
+    return res.status(200).json(users);
+  } catch (e) {
+    console.log(`Error al obtener los usuarios: ${e}`);
+    return next(e);
+  }
+}
+
+/**
  * Controlador para obtener una lista paginada de todos los usuarios registrados.
+ * Aplica un filtrado automático para que los usuarios estándar no puedan visualizar perfiles ADMIN.
  * 
  * @param req - Objeto de petición de Express. Espera `page` y `limit` opcionales en el Query String.
  * @param res - Objeto de respuesta de Express. Retorna el listado paginado en formato JSON `IPagination<UserResponseDTO>`.
@@ -13,8 +33,9 @@ import type { NextFunction, Request, Response } from "express";
 const getUsersCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { page, limit } = req.query as unknown as PaginationQuery;
+    const requestingRole = req.user!.role; // Extraemos el rol del token JWT
 
-    const users = await getAllUsersSvc(page, limit);
+    const users = await getAllUsersSvc(page, limit, requestingRole);
 
     return res.status(200).json(users);
   } catch (e) {
@@ -25,17 +46,19 @@ const getUsersCtrl = async (req: Request, res: Response, next: NextFunction) => 
 
 /**
  * Controlador para obtener un usuario específico por su ID único.
+ * Evita la fuga de perfiles ADMIN cuando un rol USER intenta adivinar el identificador.
  * 
  * @param req - Objeto de petición de Express con el parámetro `id` en la ruta.
  * @param res - Objeto de respuesta de Express. Devuelve el `UserResponseDTO` correspondiente.
  * @param next - Función para pasar el control al siguiente middleware.
- * @throws {AppError} Retorna un error 404 si el usuario no existe en la base de datos.
+ * @throws {AppError} Retorna un error 404 si el usuario no existe o no tiene permisos de lectura sobre él.
  */
 const getUserByIdCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params as unknown as { id: number };
+    const requestingRole = req.user!.role;
 
-    const userById = await getUserByIdSvc(id);
+    const userById = await getUserByIdSvc(id, requestingRole);
 
     if (!userById) return next(new AppError('Usuario no encontrado', 404));
 
@@ -111,4 +134,4 @@ const deleteUserCtrl = async (req: Request, res: Response, next: NextFunction) =
   }
 }
 
-export { createUserCtrl, deleteUserCtrl, getUserByIdCtrl, getUsersCtrl, updateUserCtrl };
+export { getUsersLookupCtrl, createUserCtrl, deleteUserCtrl, getUserByIdCtrl, getUsersCtrl, updateUserCtrl };
