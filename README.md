@@ -7,7 +7,7 @@
 [![Mongoose](https://img.shields.io/badge/Mongoose-v9.7.4-green.svg)](https://mongoosejs.com/)
 [![License](https://img.shields.io/badge/License-ISC-green.svg)](https://opensource.org/licenses/ISC)
 
-*Un ecosistema digital moderno, modular y de alto rendimiento para la gestión relacional de libros y usuarios, con encriptación nativa y persistencia híbrida en PostgreSQL y MongoDB.*
+*Un ecosistema digital moderno, modular y de alto rendimiento para la gestión relacional de libros y usuarios, con encriptación nativa, seguridad JWT con rotación de Refresh Token y persistencia híbrida en PostgreSQL y MongoDB.*
 
 ---
 
@@ -19,7 +19,7 @@ El sistema implementa una persistencia de datos híbrida para optimizar las oper
 1. **PostgreSQL (SQL Transaccional):** Almacena de manera consistente la relación obligatoria `1 a N` entre **Usuarios** y **Libros** (no existen libros sin usuario propietario). Garantiza la integridad referencial y las transacciones ácidas (ACID).
 2. **MongoDB (NoSQL de Alta Escritura):** Diseñado para la captura de logs rápidos, métricas asíncronas y auditorías del sistema.
 
-Toda la base del código está 100% autodocumentada con **TSDoc** profesional y protegida por políticas estrictas de seguridad (hashing mediante **Bcrypt**, saneamiento contra inyecciones XSS, limitadores de tasa y control de tamaño de payloads).
+Toda la base del código está 100% autodocumentada con **TSDoc** profesional y protegida por políticas estrictas de seguridad (hashing mediante **Bcrypt**, seguridad de sesiones basada en JWT, saneamiento contra inyecciones XSS, limitadores de tasa y control de tamaño de payloads).
 
 ---
 
@@ -27,8 +27,11 @@ Toda la base del código está 100% autodocumentada con **TSDoc** profesional y 
 
 | Icono | Componente de Funcionalidad | Impacto en el Negocio / Rendimiento |
 | :---: | :--- | :--- |
-| 🛡️ | **Autenticación y Seguridad Bcrypt** | Encriptación asíncrona de contraseñas de usuarios mediante hashes seguros. Prevención nativa de fugas de datos en respuestas JSON a través DTOs y Mappers. |
+| 🔑 | **Autenticación JWT con Refresh Token Rotation** | Firma de access tokens efímeros (15m) y refresh tokens de larga duración (7d). Rotación automática de tokens para invalidar sesiones previas y evitar la suplantación de identidad. |
+| 🛡️ | **Seguridad y Hashing Bcrypt** | Encriptación asíncrona de contraseñas de usuarios mediante hashes seguros. Prevención nativa de fugas de datos en respuestas JSON a través DTOs y Mappers. |
+| 🛡️ | **Middleware unificado RBAC (`restrictTo`)** | Control de acceso basado en roles (RBAC) y validación de tokens unificados en un único middleware para evitar redundancias y mejorar el rendimiento de enrutamiento. |
 | 🔄 | **Borrado Lógico Inteligente (`isActive`)** | Inhabilitación segura de usuarios sin romper la integridad referencial en cascada de los libros asociados en PostgreSQL. |
+| 🔒 | **Filtros de Propiedad y Reglas de Dominio** | Restricciones avanzadas: un usuario `USER` no puede ver perfiles de administradores (retorna 404), y los libros solo pueden ser modificados o eliminados por sus propietarios o por administradores. |
 | 🚀 | **Validación Strict con Zod** | Validación estricta en el body, query y params de Express, filtrando propiedades desconocidas (strip) y rechazando payloads inválidos. |
 | 📦 | **Arquitectura Modular Desacoplada** | Estructuración por capas independientes (`entities`, `models`, `mappers`, `dtos`, `schemas`) que aísla la base de datos de la lógica de negocio y del cliente. |
 | ⚡ | **Persistencia Híbrida & Prisma 7** | Utilización de Prisma 7 con Driver Adapters basados en WebAssembly/Node y transacciones optimizadas sobre PostgreSQL. |
@@ -46,36 +49,39 @@ books/
 ├── prisma/
 │   ├── migrations/         # Historial de migraciones SQL generadas por Prisma.
 │   ├── schema.prisma       # Modelado relacional estricto con Enums y Llaves Foráneas.
-│   └── seed.ts             # Script de población de datos iniciales con relaciones íntegras.
+│   └── seed.ts             # Script de población de datos iniciales con relaciones e indexación de roles.
 ├── src/
 │   ├── core/               # Núcleo global de la aplicación.
 │   │   ├── database/
 │   │   │   ├── mongo/      # Conexión a MongoDB utilizando Mongoose.
 │   │   │   └── postgres/   # Cliente de Prisma configurado con pg-driver-adapter.
 │   │   ├── errors/         # Clase central AppError para el manejo de excepciones operacionales.
-│   │   ├── middlewares/    # Middlewares globales (ErrorHandler, Zod Validation).
+│   │   ├── middlewares/    # Middlewares globales (ErrorHandler, restrictTo de seguridad unificada, Zod Validation).
 │   │   ├── router/         # Enrutador centralizado (Prefijado con /api/v1).
-│   │   ├── types/          # Tipos transversales de TypeScript (ej. Paginación).
+│   │   ├── types/          # Tipos transversales de TypeScript (ej. Paginación y extensión de Express.Request).
 │   │   └── utils/          # Utilidades globales (Sanitizadores XSS, removeUndefined).
 │   ├── modules/            # Módulos aislados de negocio.
+│   │   ├── auth/           # Módulo de Autenticación.
+│   │   │   ├── controllers/# Controladores de autenticación (Login, Registro y Refresh Token).
+│   │   │   ├── dtos/       # Data Transfer Objects (LoginRequestDTO, RegisterRequestDTO, AuthResponseDTO).
+│   │   │   ├── routes/     # Rutas REST de autenticación (/login, /register, /refresh).
+│   │   │   ├── schemas/    # Esquemas Zod para la verificación y coincidencia de password.
+│   │   │   └── services/   # Lógica de firmado de JWTs y validación de vigencia del Refresh Token.
 │   │   ├── books/          # Módulo de Libros.
-│   │   │   ├── controllers/# Controladores HTTP del recurso libros.
+│   │   │   ├── controllers/# Controladores HTTP del recurso libros que inyectan el usuario solicitante.
 │   │   │   ├── dtos/       # Data Transfer Objects (Request/Response).
-│   │   │   ├── entities/   # Interfaces del Dominio/Negocio (independientes de la DB).
 │   │   │   ├── mappers/    # Traductores de Modelos de DB a DTOs formateados.
-│   │   │   ├── models/     # Representación estricta de la tabla física en base de datos.
-│   │   │   ├── routes/     # Rutas REST de libros.
+│   │   │   ├── routes/     # Rutas REST de libros protegidas con control de roles.
 │   │   │   ├── schemas/    # Esquemas Zod para validación de entrada.
-│   │   │   └── services/   # Capa de Lógica de Negocio y queries de base de datos.
+│   │   │   └── services/   # Lógica de libros con verificación estricta de propiedad/propietario.
 │   │   └── users/          # Módulo de Usuarios.
-│   │       ├── controllers/# Controladores HTTP de usuarios.
+│   │       ├── controllers/# Controladores HTTP de usuarios y listas lookup.
 │   │       ├── dtos/       # DTOs de petición y respuesta (Omiten la contraseña).
-│   │       ├── entities/   # Interfaces del negocio de usuarios con isActive.
 │   │       ├── mappers/    # Mapeadores de usuarios con formateo de fechas dd/MM/yyyy.
-│   │       ├── models/     # Modelo físico de PostgreSQL (con rol tipo Enum y fechas).
 │   │       ├── routes/     # Rutas REST de usuarios.
-│   │       ├── schemas/    # Esquemas Zod para la creación y edición parcial (strict).
-│   │       └── services/   # Lógica del CRUD, verificación de duplicados y encriptación con bcrypt.
+│   │       ├── schemas/    # Esquemas Zod para la creación y edición parcial (strict) sin defaults problemáticos.
+│   │       └── services/   # Lógica del CRUD, filtrado selectivo de ADMINs a usuarios comunes y encriptación.
+│   └── index.ts            # Punto de entrada de la aplicación Express.
 │   └── index.ts            # Punto de entrada de la aplicación Express.
 ├── docker-compose.yml      # Orquestación local de PostgreSQL 15 y MongoDB.
 ├── package.json            # Scripts del sistema y dependencias declaradas.
@@ -89,7 +95,7 @@ books/
 ```
 [ Cliente / Postman ]
        │
-       ▼ (Petición HTTP)
+       ▼ (Petición HTTP con Cabecera Authorization)
 ┌────────────────────────────────────────────────────────┐
 │               Middlewares Globales (src/index.ts)      │
 │  - Helmet, CORS, Rate-Limit, JSON size validation      │
@@ -104,23 +110,30 @@ books/
                        │
                        ▼
 ┌────────────────────────────────────────────────────────┐
+│             Middleware Unificado restrictTo            │
+│  - Valida el Access Token firmado (JWT_ACCESS_SECRET)   │
+│  - Inyecta el usuario desencriptado en req.user        │
+│  - Bloquea accesos no permitidos según los roles       │
+└──────────────────────┬─────────────────────────────────┘
+                       │
+                       ▼
+┌────────────────────────────────────────────────────────┐
 │             Middleware de Validación Zod               │
 │  - Sanitización contra XSS (sanitize-html)             │
 │  - Filtro estricto de campos adicionales (.strict())   │
 └──────────────────────┬─────────────────────────────────┘
-                       │ (Datos 100% Saneados)
+                       │ (Datos 100% Saneados y Autenticados)
                        ▼
 ┌────────────────────────────────────────────────────────┐
 │     Controladores del Módulo (src/modules/*/ctrl)      │
-│  - Extrae params y query y delega al servicio          │
+│  - Extrae params, body, query e inyecta req.user       │
 └──────────────────────┬─────────────────────────────────┘
                        │
                        ▼
 ┌────────────────────────────────────────────────────────┐
 │      Servicios del Módulo (src/modules/*/services)     │
-│  - Aplica reglas de negocio y lógica de autenticación  │
-│  - Encriptación con bcrypt en escritura                │
-│  - Llama a base de datos mediante Prisma (PostgreSQL)  │
+│  - Aplica reglas de negocio (ej: ¿Es dueño o Admin?)   │
+│  - Consulta a PostgreSQL usando Prisma Client           │
 └──────────────────────┬─────────────────────────────────┘
                        │ (Modelo de Persistencia)
                        ▼
@@ -174,6 +187,7 @@ El proyecto utiliza **Prisma 7**, cuya configuración y flujo de desarrollo requ
 | :---: | :--- | :--- | :--- |
 | 🚂 | **express** | `^5.2.1` | Servidor HTTP de última generación. |
 | 🛡️ | **bcrypt** | `^6.0.0` | Algoritmo de hashing criptográfico para contraseñas. |
+| 🔑 | **jsonwebtoken** | `^9.0.3` | Generación y validación de tokens de acceso y refresco (JWT). |
 | 📅 | **date-fns** | `^4.4.0` | Manipulación y formateo de fechas. |
 | 🛡️ | **helmet** | `^8.3.0` | Middleware para establecer cabeceras de seguridad. |
 | 🌐 | **cors** | `^2.8.6` | Control de acceso HTTP y políticas de origen. |
@@ -189,6 +203,7 @@ El proyecto utiliza **Prisma 7**, cuya configuración y flujo de desarrollo requ
 | ⚗️ | **prisma** | `^7.8.0` | Herramienta CLI de Prisma ORM para migraciones. |
 | ⚡ | **tsx** | `^4.23.1` | Ejecución y recarga en caliente de archivos TypeScript. |
 | 🏷️ | **@types/bcrypt** | `^6.0.0` | Tipado de desarrollo para Bcrypt. |
+| 🔑 | **@types/jsonwebtoken** | `^9.0.10` | Definiciones de tipo para la biblioteca jsonwebtoken. |
 | 🔗 | **tsc-alias** | `^1.9.1` | Resolución de alias de directorios (`@core/*`, `@modules/*`). |
 
 ---
@@ -212,6 +227,9 @@ El proyecto utiliza **Prisma 7**, cuya configuración y flujo de desarrollo requ
    PORT=3000
    POSTGRES_URI="postgresql://user:password@localhost:5432/books_db?schema=public"
    MONGO_URI="mongodb://localhost:27017/books_audits"
+   JWT_ACCESS_SECRET="tu_secreto_super_seguro_access"
+   JWT_REFRESH_SECRET="tu_secreto_super_seguro_refresh"
+   JWT_EXPIRES_IN=900
    ```
 3. **Iniciar servicios de infraestructura:**
    ```bash
@@ -220,6 +238,8 @@ El proyecto utiliza **Prisma 7**, cuya configuración y flujo de desarrollo requ
 4. **Ejecutar migraciones y seeding inicial:**
    ```bash
    npx prisma migrate dev --name init
+   ```
+   ```bash
    npx prisma db seed
    ```
 5. **Iniciar el servidor en modo desarrollo (Watch mode):**
