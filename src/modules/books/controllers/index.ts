@@ -2,6 +2,7 @@ import AppError from "@core/errors";
 import type { PaginationQuery } from "@core/types/pagination";
 import { createBookSvc, deleteBookSvc, getAllBooksSvc, getBookByIdSvc, updateBookSvc } from "@modules/books/services";
 import type { NextFunction, Request, Response } from "express";
+import type { BooksPaginationQuery } from "../entities";
 
 /**
  * Controlador para obtener un listado paginado de libros.
@@ -13,9 +14,9 @@ import type { NextFunction, Request, Response } from "express";
  */
 const getBooksCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { page, limit } = req.query as unknown as PaginationQuery;
+    const filters = req.query as unknown as BooksPaginationQuery;
 
-    const books = await getAllBooksSvc(page, limit);
+    const books = await getAllBooksSvc(filters);
 
     return res.status(200).json(books);
   } catch (e) {

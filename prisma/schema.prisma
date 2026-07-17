@@ -21,6 +21,10 @@ model Book {
   deletedAt DateTime?
   userId    Int
   user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])          // Optimiza los Joins e incluye búsquedas por "Todos los libros de un usuario"
+  @@index([title])           // Filtro rápido por título parcial o completo
+  @@index([author])          // Filtro rápido por autor parcial o completo
 }
 
 enum Role {
@@ -43,4 +47,6 @@ model User {
   deletedAt DateTime?
 
   @@index([name])
+  @@index([lastname])        // Optimiza la búsqueda por apellido en tu filtro 'OR'
+  @@index([role, isActive])  // ¡Índice compuesto senior! Optimiza filtros combinados de backoffice
 }

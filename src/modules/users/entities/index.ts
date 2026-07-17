@@ -1,3 +1,10 @@
+import { type PaginationQuery } from "@core/types/pagination";
+
+interface UsersPaginationQuery extends PaginationQuery {
+  role?: 'ADMIN' | 'USER';
+  isActive?: boolean;
+}
+
 /**
  * Entidad de dominio que representa a un Usuario.
  * Define la estructura y reglas de negocio del Usuario en la aplicación.
@@ -28,5 +35,6 @@ interface UserEntity {
 }
 
 export {
-  type UserEntity
+  type UserEntity,
+  type UsersPaginationQuery
 };

@@ -6,6 +6,7 @@ import bcrypt from "bcrypt";
 import type { CreateUserRequestDTO, UpdateUserRequestDTO } from "../dtos/request";
 import type { UserResponseDTO } from "../dtos/response";
 import { toUserResponseDTO, toUserResponseDTOs } from "../mappers";
+import type { UsersPaginationQuery } from "../entities";
 
 /**
  * Servicio para obtener un listado resumido e incondicional de todos los usuarios
@@ -35,21 +36,59 @@ const getUsersLookupSvc = async (): Promise<Pick<UserResponseDTO, 'id' | 'name' 
  * @param requestingRole - Rol del usuario que realiza la petición ('ADMIN' o 'USER').
  * @returns Promesa que resuelve a un objeto paginado de tipo `UserResponseDTO`.
  */
-const getAllUsersSvc = async (page: number, limit: number, requestingRole: string): Promise<IPagination<UserResponseDTO>> => {
+const getAllUsersSvc = async (
+  requestingRole: string,
+  filters: UsersPaginationQuery
+): Promise<IPagination<UserResponseDTO>> => {
+  const { page, limit, search, role, isActive } = filters;
+
   const skip = (page - 1) * limit;
 
-  // Si quien consulta es USER, solo puede ver otros usuarios con rol USER (no los ADMIN)
-  const roleFilter = requestingRole !== 'ADMIN' ? { role: 'USER' as const } : {};
+  // Creamos un array vacío de condiciones que Prisma unirá con un AND
+  const conditions: any[] = [];
+
+  // 1. Filtro de seguridad por rol (mismo que ya tenías)
+  // Si el que consulta no es ADMIN, lo obligamos a ver solo "USER"
+  if (requestingRole !== 'ADMIN') {
+    conditions.push({ role: 'USER' as const });
+  }
+
+  // 2. Filtro de búsqueda (solo si llega y no está vacío)
+  if (search && search.trim() !== '') {
+    conditions.push({
+      OR: [
+        { email: { contains: search, mode: 'insensitive' as const } },
+        { name: { contains: search, mode: 'insensitive' as const } },
+        { lastname: { contains: search, mode: 'insensitive' as const } },
+      ]
+    });
+  }
+
+  // 3. Filtro por Rol específico (solo si llega)
+  if (role) {
+    conditions.push({ role });
+  }
+
+  // 4. Filtro por Estado Activo (solo si es explícitamente true o false)
+  // Evaluamos con !== undefined porque si es false, un "if (isActive)" lo ignoraría
+  if (isActive !== undefined) {
+    conditions.push({ isActive });
+  }
+
+  // 5. Construimos el whereClause final.
+  // Si hay condiciones, las unimos con AND. Si el array está vacío, mandamos un objeto vacío {} 
+  // para que Prisma entienda que debe traer todos los registros sin restricciones adicionales.
+  const whereClause = conditions.length > 0 ? { AND: conditions } : {};
 
   const [users, totalItems] = await prisma.$transaction([
     prisma.user.findMany({
       skip,
       take: limit,
       orderBy: { id: 'asc' },
-      where: roleFilter,
+      where: whereClause, // <-- Aplicamos la cláusula combinada
       include: { _count: { select: { books: true } } },
     }),
-    prisma.user.count({ where: roleFilter })
+    prisma.user.count({ where: whereClause }) // <-- El contador también debe filtrar para que cuadre la paginación
   ]);
 
   const totalPages = Math.ceil(totalItems / limit);

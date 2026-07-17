@@ -30,6 +30,8 @@ interface PaginationQuery {
   page: number;
   /** Límite de ítems por página */
   limit: number;
+  /** Término de búsqueda opcional */
+  search?: string;
 }
 
 /**
@@ -37,23 +39,30 @@ interface PaginationQuery {
  * Transforma los valores de tipo string enviados por URL a números enteros válidos
  * y define rangos seguros por defecto (página inicial 1 y límite entre 1 y 100).
  */
+const BaseQuerySchema = z.object({
+  page: z
+    .string()
+    .optional()
+    .default('1')
+    .transform((val) => Math.max(1, parseInt(val, 10))), // Mínimo página 1
+  limit: z
+    .string()
+    .optional()
+    .default('10')
+    .transform((val) => Math.max(1, Math.min(100, parseInt(val, 10)))), // Límite entre 1 y 100
+  search: z
+    .string()
+    .optional()
+    .default(''),
+});
+
 const GetQuerySchema = z.object({
-  query: z.object({
-    page: z
-      .string()
-      .optional()
-      .default('1')
-      .transform((val) => Math.max(1, parseInt(val, 10))), // Mínimo página 1
-    limit: z
-      .string()
-      .optional()
-      .default('10')
-      .transform((val) => Math.max(1, Math.min(100, parseInt(val, 10)))), // Límite entre 1 y 100
-  }),
+  query: BaseQuerySchema,
 });
 
 export {
   type IPagination,
+  BaseQuerySchema,
   GetQuerySchema,
   type PaginationQuery
 }

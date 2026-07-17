@@ -1,5 +1,18 @@
+import { BaseQuerySchema } from '@core/types/pagination';
 import sanitizeText from '@core/utils/sanitizeHtml';
 import { z } from 'zod';
+
+const GetUsersQuerySchema = z.object({
+  query: BaseQuerySchema.merge(
+    z.object({
+      role: z.enum(['ADMIN', 'USER']).optional(),
+      isActive: z.string().optional().transform((val) => {
+        if (!val || val === 'undefined' || val === 'null') return undefined;
+        return val === 'true'; // Devuelve true si es "true", false para cualquier otra cosa
+      }),
+    }).strict()
+  )
+});
 
 /**
  * Esquema para validar solicitudes que contengan un identificador de usuario (`req.params.id`).
@@ -11,7 +24,7 @@ const UserByIdSchema = z.object({
       .string()
       .regex(/^\d+$/, 'El ID debe ser un número válido') // Solo números
       .transform((val) => parseInt(val, 10)),            // Transforma a número
-  }),
+  }).strict(),
 });
 
 /**
@@ -99,5 +112,6 @@ const UpdateUserSchema = z.object({
 export {
   CreateUserSchema,
   UpdateUserSchema,
-  UserByIdSchema
+  UserByIdSchema,
+  GetUsersQuerySchema
 };

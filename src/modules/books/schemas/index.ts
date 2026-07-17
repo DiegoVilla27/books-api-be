@@ -1,5 +1,14 @@
 import { z } from 'zod';
 import sanitizeText from '@core/utils/sanitizeHtml';
+import { BaseQuerySchema } from '@core/types/pagination';
+
+const GetBooksQuerySchema = z.object({
+  query: BaseQuerySchema.merge(
+    z.object({
+      userId: z.coerce.number().optional(),
+    }).strict()
+  )
+});
 
 /**
  * Esquema de validación para solicitudes que requieren un ID de libro en los parámetros de ruta (`req.params`).
@@ -69,5 +78,6 @@ const UpdateBookSchema = z.object({
 export {
   CreateBookSchema,
   UpdateBookSchema,
-  BookByIdSchema
+  BookByIdSchema,
+  GetBooksQuerySchema
 }

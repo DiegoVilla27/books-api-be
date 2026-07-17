@@ -165,15 +165,19 @@ El proyecto utiliza **Prisma 7**, cuya configuración y flujo de desarrollo requ
    ```bash
    npx prisma migrate dev --name <nombre_de_migracion>
    ```
-3. **Regenerar el cliente con tipado estático personalizado:**
+3. **Reiniciar la base de datos y las migraciones:**
+   ```bash
+   npx prisma migrate reset
+   ```
+4. **Regenerar el cliente con tipado estático personalizado:**
    ```bash
    npx prisma generate
    ```
-4. **Insertar datos iniciales de prueba (Relación Usuario-Libros):**
+5. **Insertar datos iniciales de prueba (Relación Usuario-Libros):**
    ```bash
    npx prisma db seed
    ```
-5. **Administración Visual (Prisma Studio):**
+6. **Administración Visual (Prisma Studio):**
    ```bash
    npx prisma studio
    ```

@@ -5,6 +5,7 @@ import { removeDataUndefined } from "@core/utils/removeDataUndefined";
 import type { CreateBookRequestDTO, UpdateBookRequestDTO } from "../dtos/request";
 import type { BookResponseDTO } from "../dtos/response";
 import { toBookResponseDTO, toBookResponseDTOs } from "../mappers";
+import type { BooksPaginationQuery } from "../entities";
 
 /**
  * Servicio para obtener una lista paginada de libros.
@@ -15,14 +16,41 @@ import { toBookResponseDTO, toBookResponseDTOs } from "../mappers";
  * @param limit - Límite de registros por página.
  * @returns Promesa que resuelve a un objeto paginado conteniendo un listado de `BookResponseDTO`.
  */
-const getAllBooksSvc = async (page: number, limit: number): Promise<IPagination<BookResponseDTO>> => {
+const getAllBooksSvc = async (filters: BooksPaginationQuery): Promise<IPagination<BookResponseDTO>> => {
+  const { page, limit, search, userId } = filters;
+
   const skip = (page - 1) * limit;
+
+  // Creamos un array vacío de condiciones que Prisma unirá con un AND
+  const conditions: any[] = [];
+
+  // 1. Filtro de búsqueda (solo si llega y no está vacío)
+  if (search && search.trim() !== '') {
+    conditions.push({
+      OR: [
+        { title: { contains: search, mode: 'insensitive' as const } },
+        { author: { contains: search, mode: 'insensitive' as const } }
+      ]
+    });
+  }
+
+  // 2. Filtro por userId (solo si llega en los filtros)
+  // Útil para vistas como "Mis Libros" o "Libros de un usuario específico"
+  if (userId) {
+    conditions.push({
+      userId: userId
+    });
+  }
+
+  // 3. Montamos la cláusula final condicionalmente
+  const whereClause = conditions.length > 0 ? { AND: conditions } : {};
 
   const [books, totalItems] = await prisma.$transaction([
     prisma.book.findMany({
       skip,
       take: limit,
       orderBy: { id: 'asc' }, // Ordenamos para que la paginación sea consistente
+      where: whereClause, // <-- Aplicamos la cláusula combinada
       include: {
         user: {
           select: {
@@ -33,7 +61,7 @@ const getAllBooksSvc = async (page: number, limit: number): Promise<IPagination<
         }
       }
     }),
-    prisma.book.count()
+    prisma.book.count({ where: whereClause }) // <-- El contador también debe filtrar
   ]);
 
   const totalPages = Math.ceil(totalItems / limit);

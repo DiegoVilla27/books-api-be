@@ -4,54 +4,102 @@ import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from "bcrypt";
 
-// Inicializamos la conexión tal como lo haces en tu app
 const connectionString = process.env.POSTGRES_URI;
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-// Modifica la función main en prisma/seed.ts
-async function main() {
-  console.log('🌱 Iniciando el seeding de datos...');
+// Nombres y apellidos realistas para generar datos de prueba creíbles
+const FIRST_NAMES = ['Diego', 'Laura', 'Carlos', 'Sofía', 'Andrés', 'Mateo', 'Valentina', 'Santiago', 'Camila', 'Felipe', 'Mariana', 'Lucas', 'Daniela', 'Nicolás', 'Isabella', 'Alejandro', 'Gabriela', 'Sebastián', 'Lucía', 'Martín'];
+const LAST_NAMES = ['Villa', 'Sánchez', 'Velasco', 'Gómez', 'Rodríguez', 'González', 'Martínez', 'López', 'Pérez', 'García', 'Hernández', 'Díaz', 'Moreno', 'Muñoz', 'Álvarez', 'Romero', 'Alonso', 'Gutiérrez', 'Navarro', 'Torres'];
 
-  // Limpiamos los registros existentes de ambas tablas
+const BOOK_SUBJECTS = ['El Secreto de', 'La Historia de', 'Principios de', 'Manual de', 'Guía Completa de', 'Las Aventuras de', 'El Misterio de', 'Crónicas de', 'El Arte de', 'La Leyenda de'];
+const BOOK_TOPICS = ['React y Node', 'Angular Moderno', 'Spring Boot Avanzado', 'Arquitectura Limpia', 'Algoritmos y Estructuras', 'Diseño de Sistemas', 'Bases de Datos con Prisma', 'TypeScript Eficiente', 'Microservicios', 'Ciberseguridad Práctica'];
+
+async function main() {
+  console.log('🌱 [SEED] Iniciando el vaciado de tablas...');
+
+  // Limpiamos la base de datos en orden para no romper restricciones de llave foránea
   await prisma.book.deleteMany();
   await prisma.user.deleteMany();
 
-  // 1. Creamos un usuario de prueba primero
-  const defaultUser = await prisma.user.create({
-    data: {
-      name: 'Diego',
-      lastname: 'Villa',
-      email: 'diego@cabuweb.com',
-      password: await bcrypt.hash('1234', 10), // En un futuro usaremos bcrypt aquí
-      age: 25,
-      role: "ADMIN"
-    },
+  console.log('🧹 [SEED] Base de datos limpia. Generando datos...');
+
+  // 1. Encriptamos la contraseña una sola vez para no ralentizar el script con 100 llamadas de bcrypt
+  const hashedPassword = await bcrypt.hash('1234', 10);
+
+  // 2. Generamos la estructura para los 100 usuarios
+  const usersData = Array.from({ length: 100 }, (_, i) => {
+    const name = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
+    const lastname = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
+
+    // Aseguramos emails únicos concatenando el índice
+    // Convertimos a minúsculas, separamos los acentos de las letras y removemos los caracteres diacríticos (tildes)
+    // Construimos el email seguro (sin tildes, compatible con cualquier validador del mundo)
+    const cleanName = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const cleanLastname = lastname.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const email = `${cleanName}.${cleanLastname}.${i + 1}@example.com`;
+    const age = Math.floor(Math.random() * (60 - 18 + 1)) + 18; // Edad aleatoria entre 18 y 60 años
+    const role = i === 0 ? 'ADMIN' : 'USER'; // El primer usuario será ADMIN, los demás USER
+
+    return {
+      name,
+      lastname,
+      email,
+      password: hashedPassword,
+      age,
+      role: role as any, // Cast para evitar quejas del enum tipado de Prisma
+      isActive: Math.random() > 0.15, // 85% de probabilidad de estar activo
+    };
   });
 
-  // 2. Generamos los 100 libros asignando el userId de ese usuario
-  const booksData = Array.from({ length: 100 }, (_, i) => ({
-    title: `Libro de Prueba #${i + 1}`,
-    author: `Autor Ficticio #${i + 1}`,
-    userId: defaultUser.id, // <-- Enlazar con el usuario creado
-  }));
+  console.log('👥 [SEED] Insertando 100 usuarios...');
+  await prisma.user.createMany({
+    data: usersData,
+  });
 
-  // 3. Insertamos los 100 libros
+  // 3. Recuperamos los IDs asignados por la base de datos
+  const createdUsers = await prisma.user.findMany({
+    select: { id: true }
+  });
+
+  const userIds = createdUsers.map(user => user.id);
+
+  // 4. Generamos los 1000 libros distribuidos de manera aleatoria
+  console.log('📚 [SEED] Generando lote de 1000 libros...');
+  const booksData = Array.from({ length: 1000 }, (_, i) => {
+    const subject = BOOK_SUBJECTS[Math.floor(Math.random() * BOOK_SUBJECTS.length)];
+    const topic = BOOK_TOPICS[Math.floor(Math.random() * BOOK_TOPICS.length)];
+    const authorName = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
+    const authorLastname = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
+
+    // Asignamos un ID de usuario aleatorio de nuestra lista recuperada
+    const randomUserId = userIds[Math.floor(Math.random() * userIds.length)];
+
+    return {
+      title: `${subject} ${topic} (Vol. ${Math.floor(Math.random() * 5) + 1}) - #${i + 1}`,
+      author: `${authorName} ${authorLastname}`,
+      userId: randomUserId,
+    };
+  });
+
+  console.log('🚀 [SEED] Insertando 1000 libros...');
   await prisma.book.createMany({
     data: booksData,
   });
 
-  console.log('✅ Seeding completado: 1 usuario y 100 libros creados.');
+  console.log('✅ [SEED] Seeding completado de forma ultra rápida:');
+  console.log(`   - Usuarios creados: ${userIds.length}`);
+  console.log(`   - Libros distribuidos: 1000`);
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Error en el seeding:', e);
+    console.error('❌ Error crítico durante el proceso de Seeding:', e);
     process.exit(1);
   })
   .finally(async () => {
-    // Cerramos el pool de conexiones al terminar
     await prisma.$disconnect();
     await pool.end();
+    console.log('🔌 Conexiones de base de datos cerradas de forma segura.');
   });

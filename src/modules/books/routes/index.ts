@@ -1,8 +1,7 @@
 import { restrictTo } from "@core/middlewares/restrictTo";
 import validateDataMiddleware from "@core/middlewares/validateDataZod";
-import { GetQuerySchema } from "@core/types/pagination";
 import { createBookCtrl, deleteBookCtrl, getBookByIdCtrl, getBooksCtrl, updateBookCtrl } from "@modules/books/controllers";
-import { BookByIdSchema, CreateBookSchema, UpdateBookSchema } from "@modules/books/schemas";
+import { BookByIdSchema, CreateBookSchema, GetBooksQuerySchema, UpdateBookSchema } from "@modules/books/schemas";
 import { Router } from "express";
 
 /**
@@ -15,7 +14,7 @@ const bookRoutes = Router();
 // Endpoint para el listado paginado de libros (Accesible por USER y ADMIN)
 bookRoutes.get('/books', [
   restrictTo('USER', 'ADMIN'),
-  validateDataMiddleware(GetQuerySchema)
+  validateDataMiddleware(GetBooksQuerySchema)
 ], getBooksCtrl);
 
 // Endpoint para obtener el detalle de un libro por ID (Accesible por USER y ADMIN)

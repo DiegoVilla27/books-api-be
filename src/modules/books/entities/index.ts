@@ -1,4 +1,9 @@
+import type { PaginationQuery } from "@core/types/pagination";
 import type { UserEntity } from "@modules/users/entities";
+
+interface BooksPaginationQuery extends PaginationQuery {
+  userId?: number;
+}
 
 /**
  * Entidad de dominio que representa un Libro.
@@ -22,5 +27,6 @@ interface BookEntity {
 }
 
 export {
-  type BookEntity
+  type BookEntity,
+  type BooksPaginationQuery
 };

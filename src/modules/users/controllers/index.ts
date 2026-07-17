@@ -2,6 +2,7 @@ import AppError from "@core/errors";
 import type { PaginationQuery } from "@core/types/pagination";
 import { createUserSvc, deleteUserSvc, getAllUsersSvc, getUserByIdSvc, getUsersLookupSvc, updateUserSvc } from "@modules/users/services";
 import type { NextFunction, Request, Response } from "express";
+import type { UsersPaginationQuery } from "../entities";
 
 /**
  * Controlador para obtener un listado simplificado de todos los usuarios.
@@ -32,10 +33,10 @@ const getUsersLookupCtrl = async (_: Request, res: Response, next: NextFunction)
  */
 const getUsersCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { page, limit } = req.query as unknown as PaginationQuery;
+    const filters = req.query as unknown as UsersPaginationQuery;
     const requestingRole = req.user!.role; // Extraemos el rol del token JWT
 
-    const users = await getAllUsersSvc(page, limit, requestingRole);
+    const users = await getAllUsersSvc(requestingRole, filters);
 
     return res.status(200).json(users);
   } catch (e) {

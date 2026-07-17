@@ -2,7 +2,7 @@ import { restrictTo } from "@core/middlewares/restrictTo";
 import validateDataMiddleware from "@core/middlewares/validateDataZod";
 import { GetQuerySchema } from "@core/types/pagination";
 import { createUserCtrl, deleteUserCtrl, getUserByIdCtrl, getUsersCtrl, getUsersLookupCtrl, updateUserCtrl } from "@modules/users/controllers";
-import { CreateUserSchema, UpdateUserSchema, UserByIdSchema } from "@modules/users/schemas";
+import { CreateUserSchema, GetUsersQuerySchema, UpdateUserSchema, UserByIdSchema } from "@modules/users/schemas";
 import { Router } from "express";
 
 /**
@@ -20,7 +20,7 @@ userRoutes.get('/users/lookup', [
 // Endpoint para el listado paginado de usuarios (Accesible por USER y ADMIN)
 userRoutes.get('/users', [
   restrictTo('USER', 'ADMIN'),
-  validateDataMiddleware(GetQuerySchema)
+  validateDataMiddleware(GetUsersQuerySchema)
 ], getUsersCtrl);
 
 // Endpoint para obtener un usuario por ID (Accesible por USER y ADMIN)
