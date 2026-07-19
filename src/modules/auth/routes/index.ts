@@ -1,8 +1,8 @@
+import { restrictTo } from "@core/middlewares/restrictTo";
 import validateDataMiddleware from "@core/middlewares/validateDataZod";
 import { Router } from "express";
 import { getMeCtrl, loginCtrl, refreshTokenCtrl, registerCtrl } from "../controllers";
 import { LoginSchema, RefreshTokenSchema, RegisterSchema } from "../schemas";
-import { restrictTo } from "@core/middlewares/restrictTo";
 
 /**
  * Enrutador de Express encargado de exponer los endpoints públicos del módulo de Autenticación.
@@ -28,9 +28,6 @@ authRoutes.post('/login', validateDataMiddleware(LoginSchema), loginCtrl);
 authRoutes.post('/register', validateDataMiddleware(RegisterSchema), registerCtrl);
 
 // Endpoint para renovar el par de tokens JWT mediante un refresh token válido
-authRoutes.post('/refresh', [
-  restrictTo('USER', 'ADMIN'),
-  validateDataMiddleware(RefreshTokenSchema)
-], refreshTokenCtrl);
+authRoutes.post('/refresh', [validateDataMiddleware(RefreshTokenSchema)], refreshTokenCtrl);
 
 export default authRoutes;
