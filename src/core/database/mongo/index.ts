@@ -1,3 +1,4 @@
+import ENVS from '@core/environments';
 import mongoose from 'mongoose';
 
 /**
@@ -8,7 +9,7 @@ import mongoose from 'mongoose';
  */
 export const connectMongo = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI!);
+    await mongoose.connect(ENVS.MONGO_URI);
     console.log('🍃 Conectado a MongoDB con éxito');
   } catch (error) {
     console.error('Error conectando a MongoDB:', error);

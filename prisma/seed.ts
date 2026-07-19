@@ -3,8 +3,9 @@ import { PrismaClient } from '../src/core/database/postgres/generated/prisma/cli
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from "bcrypt";
+import ENVS from '../src/core/environments';
 
-const connectionString = process.env.POSTGRES_URI;
+const connectionString = ENVS.POSTGRES_URI;
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });

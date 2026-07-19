@@ -7,6 +7,7 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { connectMongo } from '@core/database/mongo';
 import globalErrorHandler from '@core/middlewares/errorHandler';
+import ENVS from '@core/environments';
 
 // Inicia conexión a mongodb
 connectMongo();
@@ -19,7 +20,7 @@ const app = express();
 /**
  * Puerto de escucha del servidor HTTP, configurado por variable de entorno `PORT` o `3000` por defecto.
  */
-const PORT = process.env.PORT || 3000;
+const PORT = ENVS.PORT;
 
 // Middlewares de Seguridad e Infraestructura
 app.use(helmet()); // Middleware para asegurar la app de diferentes ataques 
@@ -48,7 +49,7 @@ app.use(rateLimit({
   message: {
     message: 'Demasiadas peticiones desde esta IP. Por favor intenta de nuevo en 15 minutos.'
   },
-  skip: (_) => process.env.NODE_ENV === 'dev',
+  skip: (_) => ENVS.NODE_ENV === 'dev',
   standardHeaders: true, // Devuelve información de límite en las cabeceras `RateLimit-*`
   legacyHeaders: false, // Deshabilita las cabeceras antiguas `X-RateLimit-*`
 }));
@@ -71,5 +72,5 @@ app.use(globalErrorHandler);
 // Iniciamos el servidor con el puerto configurado
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo de forma segura en http://localhost:${PORT}`);
-  console.log(`⚙️ Entorno activo: ${process.env.NODE_ENV || 'production'}`);
+  console.log(`⚙️ Entorno activo: ${ENVS.NODE_ENV}`);
 });

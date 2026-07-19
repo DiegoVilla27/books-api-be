@@ -1,8 +1,9 @@
 import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import AppError from '@core/errors';
+import ENVS from '@core/environments';
 
-const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || "mi_secreto_super_seguro_access";
+const JWT_ACCESS_SECRET = ENVS.JWT_ACCESS_SECRET;
 
 /**
  * Middleware unificado de Autenticación y Autorización por Roles (RBAC).

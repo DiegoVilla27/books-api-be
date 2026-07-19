@@ -1,11 +1,12 @@
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from "@core/database/postgres/generated/prisma/client";
+import ENVS from '@core/environments';
 
 /**
  * Cadena de conexión de PostgreSQL obtenida de las variables de entorno.
  */
-const connectionString = process.env.POSTGRES_URI;
+const connectionString = ENVS.POSTGRES_URI;
 
 /**
  * Pool de conexiones nativo de Node-Postgres (`pg`).

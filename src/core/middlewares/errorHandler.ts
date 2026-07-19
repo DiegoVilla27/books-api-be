@@ -1,3 +1,4 @@
+import ENVS from '@core/environments';
 import AppError from '@core/errors';
 import type { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
@@ -110,7 +111,7 @@ const globalErrorHandler = (
   error.status = error.status || 'error';
 
   // 3. Responder según el entorno
-  if (process.env.NODE_ENV === 'dev') {
+  if (ENVS.NODE_ENV === 'dev') {
     // Desarrollo: Muestra detalles pero usando el error ya traducido y limpio
     res.status(error.statusCode).json({
       status: error.status,

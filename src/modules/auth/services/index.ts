@@ -4,10 +4,11 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import type { LoginRequestDTO, MeRequestDTO, RefreshTokenRequestDTO, RegisterRequestDTO } from "../dtos/request";
 import type { AuthResponseDTO, MeResponseDTO } from "../dtos/response";
+import ENVS from "@core/environments";
 
-const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || "mi_secreto_super_seguro_access";
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "mi_secreto_super_seguro_refresh";
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "900";
+const JWT_ACCESS_SECRET = ENVS.JWT_ACCESS_SECRET;
+const JWT_REFRESH_SECRET = ENVS.JWT_REFRESH_SECRET;
+const JWT_EXPIRES_IN = ENVS.JWT_EXPIRES_IN;
 
 /**
  * Resolves full entity identity verification bounds against active state definitions in the database.
