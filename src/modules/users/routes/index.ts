@@ -1,9 +1,10 @@
 import { restrictTo } from "@core/middlewares/restrictTo";
 import validateDataMiddleware from "@core/middlewares/validateDataZod";
-import { GetQuerySchema } from "@core/types/pagination";
-import { createUserCtrl, deleteUserCtrl, getUserByIdCtrl, getUsersCtrl, getUsersLookupCtrl, updateUserCtrl } from "@modules/users/controllers";
-import { CreateUserSchema, GetUsersQuerySchema, UpdateUserSchema, UserByIdSchema } from "@modules/users/schemas";
+import { checkEmailCtrl, createUserCtrl, deleteUserCtrl, getUserByIdCtrl, getUsersCtrl, getUsersLookupCtrl, updateUserCtrl } from "@modules/users/controllers";
+import { CreateUserSchema, GetUsersQuerySchema, UpdateUserSchema, CheckEmailSchema, UserByIdSchema } from "@modules/users/schemas";
 import { Router } from "express";
+
+const ENTITY_BASE = '/users';
 
 /**
  * Enrutador de Express encargado de exponer las rutas del recurso Usuarios.
@@ -13,37 +14,43 @@ import { Router } from "express";
 const userRoutes = Router();
 
 // Endpoint para obtener la lista resumida/lookup (Solamente accesible por ADMIN)
-userRoutes.get('/users/lookup', [
+userRoutes.get(`${ENTITY_BASE}/lookup`, [
   restrictTo('ADMIN')
 ], getUsersLookupCtrl);
 
+// Endpoint para verificar si un email existe
+userRoutes.post(`${ENTITY_BASE}/check-email`, [
+  restrictTo('USER', 'ADMIN'),
+  validateDataMiddleware(CheckEmailSchema)
+], checkEmailCtrl);
+
 // Endpoint para el listado paginado de usuarios (Accesible por USER y ADMIN)
-userRoutes.get('/users', [
+userRoutes.get(ENTITY_BASE, [
   restrictTo('USER', 'ADMIN'),
   validateDataMiddleware(GetUsersQuerySchema)
 ], getUsersCtrl);
 
 // Endpoint para obtener un usuario por ID (Accesible por USER y ADMIN)
-userRoutes.get('/users/:id', [
+userRoutes.get(`${ENTITY_BASE}/:id`, [
   restrictTo('USER', 'ADMIN'),
   validateDataMiddleware(UserByIdSchema)
 ], getUserByIdCtrl);
 
 // Endpoint para registrar un nuevo usuario (Solo ADMIN)
-userRoutes.post('/users', [
+userRoutes.post(ENTITY_BASE, [
   restrictTo('ADMIN'),
   validateDataMiddleware(CreateUserSchema)
 ], createUserCtrl);
 
 // Endpoint para actualización parcial de un usuario (Solo ADMIN)
-userRoutes.patch('/users/:id', [
+userRoutes.patch(`${ENTITY_BASE}/:id`, [
   restrictTo('ADMIN'),
   validateDataMiddleware(UserByIdSchema),
   validateDataMiddleware(UpdateUserSchema)
 ], updateUserCtrl);
 
 // Endpoint para inhabilitar lógicamente a un usuario (Solo ADMIN)
-userRoutes.delete('/users/:id', [
+userRoutes.delete(`${ENTITY_BASE}/:id`, [
   restrictTo('ADMIN'),
   validateDataMiddleware(UserByIdSchema)
 ], deleteUserCtrl);

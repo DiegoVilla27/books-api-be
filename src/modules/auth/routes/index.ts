@@ -1,7 +1,8 @@
 import validateDataMiddleware from "@core/middlewares/validateDataZod";
 import { Router } from "express";
-import { loginCtrl, refreshTokenCtrl, registerCtrl } from "../controllers";
+import { getMeCtrl, loginCtrl, refreshTokenCtrl, registerCtrl } from "../controllers";
 import { LoginSchema, RefreshTokenSchema, RegisterSchema } from "../schemas";
+import { restrictTo } from "@core/middlewares/restrictTo";
 
 /**
  * Enrutador de Express encargado de exponer los endpoints públicos del módulo de Autenticación.
@@ -10,11 +11,15 @@ import { LoginSchema, RefreshTokenSchema, RegisterSchema } from "../schemas";
  *
  * @remarks
  * Las rutas disponibles son:
+ * - `GET /me` – Obtiene el usuario actual autenticado.
  * - `POST /login`   – Autentica un usuario con email y contraseña.
  * - `POST /register` – Registra un nuevo usuario en el sistema.
  * - `POST /refresh`  – Renueva el par de tokens JWT a partir de un refresh token válido.
  */
 const authRoutes = Router();
+
+// Endpoint para obtener el usuario actual autenticado.
+authRoutes.get('/me', restrictTo('USER', 'ADMIN'), getMeCtrl);
 
 // Endpoint para autenticar un usuario con sus credenciales
 authRoutes.post('/login', validateDataMiddleware(LoginSchema), loginCtrl);
@@ -23,6 +28,9 @@ authRoutes.post('/login', validateDataMiddleware(LoginSchema), loginCtrl);
 authRoutes.post('/register', validateDataMiddleware(RegisterSchema), registerCtrl);
 
 // Endpoint para renovar el par de tokens JWT mediante un refresh token válido
-authRoutes.post('/refresh', validateDataMiddleware(RefreshTokenSchema), refreshTokenCtrl);
+authRoutes.post('/refresh', [
+  restrictTo('USER', 'ADMIN'),
+  validateDataMiddleware(RefreshTokenSchema)
+], refreshTokenCtrl);
 
 export default authRoutes;

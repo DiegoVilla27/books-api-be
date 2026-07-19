@@ -28,6 +28,17 @@ const UserByIdSchema = z.object({
 });
 
 /**
+ * Esquema para validar solicitudes que contengan un email (`req.body.email`).
+ */
+const CheckEmailSchema = z.object({
+  body: z.object({
+    email: z
+      .email('El email es inválido')
+      .transform((val) => sanitizeText(val)),
+  }).strict(),
+});
+
+/**
  * Esquema de validación para registrar un usuario nuevo (`POST /users`).
  * Valida de forma estricta los campos del cuerpo de la petición. Aplica saneado HTML
  * a los campos de texto `name`, `lastname`, `email` y `password` para evitar XSS.
@@ -113,5 +124,6 @@ export {
   CreateUserSchema,
   UpdateUserSchema,
   UserByIdSchema,
+  CheckEmailSchema,
   GetUsersQuerySchema
 };

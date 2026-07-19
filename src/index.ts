@@ -48,6 +48,7 @@ app.use(rateLimit({
   message: {
     message: 'Demasiadas peticiones desde esta IP. Por favor intenta de nuevo en 15 minutos.'
   },
+  skip: (_) => process.env.NODE_ENV === 'dev',
   standardHeaders: true, // Devuelve información de límite en las cabeceras `RateLimit-*`
   legacyHeaders: false, // Deshabilita las cabeceras antiguas `X-RateLimit-*`
 }));

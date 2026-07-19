@@ -1,6 +1,5 @@
 import AppError from "@core/errors";
-import type { PaginationQuery } from "@core/types/pagination";
-import { createUserSvc, deleteUserSvc, getAllUsersSvc, getUserByIdSvc, getUsersLookupSvc, updateUserSvc } from "@modules/users/services";
+import { checkEmailSvc, createUserSvc, deleteUserSvc, getAllUsersSvc, getUserByIdSvc, getUsersLookupSvc, updateUserSvc } from "@modules/users/services";
 import type { NextFunction, Request, Response } from "express";
 import type { UsersPaginationQuery } from "../entities";
 
@@ -135,4 +134,23 @@ const deleteUserCtrl = async (req: Request, res: Response, next: NextFunction) =
   }
 }
 
-export { getUsersLookupCtrl, createUserCtrl, deleteUserCtrl, getUserByIdCtrl, getUsersCtrl, updateUserCtrl };
+/**
+ * Controlador para verificar si un correo electrónico ya está registrado en la base de datos.
+ * 
+ * @param req - Objeto de petición de Express con el `email` en parámetros de ruta.
+ * @param res - Objeto de respuesta de Express. Devuelve `true` si el email existe, y `false` si no existe.
+ * @param next - Función de Express para delegar errores.
+ */
+const checkEmailCtrl = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const emailExists = await checkEmailSvc(req.body.email);
+
+    return res.status(200).json(emailExists);
+  } catch (e) {
+    console.log(`Error al verificar el email: ${e}`);
+    return next(e);
+  }
+}
+
+export { checkEmailCtrl, createUserCtrl, deleteUserCtrl, getUserByIdCtrl, getUsersCtrl, getUsersLookupCtrl, updateUserCtrl };
+

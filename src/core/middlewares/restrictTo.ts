@@ -47,6 +47,8 @@ export const restrictTo = (...roles: string[]) => {
       // 2. AUTENTICACIÓN: Validar firma del Token
       const decoded = jwt.verify(token, JWT_ACCESS_SECRET) as unknown as {
         sub: number;
+        name: string;
+        lastname: string;
         email: string;
         role: string;
       };
@@ -59,6 +61,8 @@ export const restrictTo = (...roles: string[]) => {
       // Inyectar usuario en el request para que los controladores lo usen
       req.user = {
         id: decoded.sub,
+        name: decoded.name,
+        lastname: decoded.lastname,
         email: decoded.email,
         role: decoded.role
       };

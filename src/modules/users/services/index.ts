@@ -203,4 +203,15 @@ const deleteUserSvc = async (id: number): Promise<UserResponseDTO> => {
   return toUserResponseDTO(userDeleted);
 }
 
-export { getUsersLookupSvc, createUserSvc, deleteUserSvc, getAllUsersSvc, getUserByIdSvc, updateUserSvc };
+/**
+ * Servicio para verificar si un correo electrónico ya está registrado en la base de datos.
+ * 
+ * @param email - Correo electrónico a consultar.
+ * @returns Promesa que resuelve a `true` si el email existe, y `false` si no existe.
+ */
+const checkEmailSvc = async (email: string): Promise<boolean> => {
+  const emailExists = await prisma.user.findUnique({ where: { email } });
+  return !!emailExists;
+}
+
+export { getUsersLookupSvc, createUserSvc, deleteUserSvc, getAllUsersSvc, getUserByIdSvc, updateUserSvc, checkEmailSvc };

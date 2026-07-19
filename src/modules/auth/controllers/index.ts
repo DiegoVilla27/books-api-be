@@ -1,5 +1,28 @@
 import type { NextFunction, Request, Response } from "express";
-import { loginSvc, refreshTokenSvc, registerSvc } from "../services";
+import { getMetSvc, loginSvc, refreshTokenSvc, registerSvc } from "../services";
+
+/**
+ * Controller responsible for retrieving the current authenticated user's profile identity.
+ * Serves as the main validation endpoint during application bootstrap lifecycles.
+ * 
+ * @remarks
+ * This handler expects the upstream authentication middleware (`restrictTo`) to have already 
+ * successfully verified the incoming JWT and injected the credentials into `req.user`.
+ *
+ * @param req - Express Request object containing the parsed context metadata inside `req.user`.
+ * @param res - Express Response object returning the authenticated user's profile properties.
+ * @param next - Express Next function to forward internal application errors to the global handler layer.
+ */
+const getMeCtrl = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = await getMetSvc(req.user);
+
+    return res.status(200).json(user);
+  } catch (error) {
+    console.log(`Error al obtener el usuario: ${error}`);
+    return next(error);
+  }
+}
 
 /**
  * Controlador para autenticar a un usuario existente mediante sus credenciales.
@@ -59,4 +82,4 @@ const refreshTokenCtrl = async (req: Request, res: Response, next: NextFunction)
   }
 }
 
-export { loginCtrl, refreshTokenCtrl, registerCtrl };
+export { getMeCtrl, loginCtrl, refreshTokenCtrl, registerCtrl };

@@ -2,44 +2,45 @@ import prisma from "@core/database/postgres";
 import AppError from "@core/errors";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import type { LoginRequestDTO, RefreshTokenRequestDTO, RegisterRequestDTO } from "../dtos/request";
-import type { AuthResponseDTO } from "../dtos/response";
+import type { LoginRequestDTO, MeRequestDTO, RefreshTokenRequestDTO, RegisterRequestDTO } from "../dtos/request";
+import type { AuthResponseDTO, MeResponseDTO } from "../dtos/response";
 
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || "mi_secreto_super_seguro_access";
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "mi_secreto_super_seguro_refresh";
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "900";
 
 /**
- * Función auxiliar privada que genera un par de tokens JWT (access + refresh) para un usuario dado.
- * Centraliza la lógica de firma para evitar duplicación (DRY) entre `loginSvc` y `registerSvc`.
+ * Resolves full entity identity verification bounds against active state definitions in the database.
+ * Validates active record integrity keys passed downstream by core auth middlewares.
+ * 
+ * @remarks
+ * This business logic layer performs a transactional fetch operation through the Prisma engine layers, 
+ * evaluating structural parameters such as account suspension metrics (`isActive`) before serializing
+ * sanitized domain payloads over the transport network.
  *
- * - **Access Token**: Contiene `sub`, `email` y `role`. Expira en `JWT_EXPIRES_IN` segundos (por defecto 15 min).
- * - **Refresh Token**: Contiene únicamente `sub`. Expira en 7 días.
- *
- * @param user - Objeto con los datos mínimos del usuario necesarios para construir el payload del token.
- * @returns Un `AuthResponseDTO` con los dos tokens firmados y el tiempo de expiración del access token.
+ * @param payload - Struct containing verified core identity request properties injected from active tokens.
+ * @returns A micro-optimized profile response object carrying safe identity parameters.
+ * @throws {AppError} Retorna `401 Unauthorized` si el payload está corrupto, la cuenta fue borrada o está inactiva.
  */
-const generateAuthTokens = (user: { id: number; email: string; role: string }): AuthResponseDTO => {
-  const expiresInSeconds = Number(JWT_EXPIRES_IN);
+const getMetSvc = async (payload: MeRequestDTO | undefined): Promise<MeResponseDTO> => {
+  if (!payload) {
+    throw new AppError("No se pudo obtener la información del usuario", 401);
+  }
 
-  const accessToken = jwt.sign(
-    { sub: user.id, email: user.email, role: user.role },
-    JWT_ACCESS_SECRET,
-    { expiresIn: expiresInSeconds }
-  );
+  const user = await prisma.user.findUnique({ where: { id: payload.id } });
 
-  const refreshToken = jwt.sign(
-    { sub: user.id },
-    JWT_REFRESH_SECRET,
-    { expiresIn: '7d' }
-  );
+  if (!user || !user.isActive) {
+    throw new AppError("No se pudo obtener la información del usuario", 401);
+  }
 
   return {
-    access_token: accessToken,
-    refresh_token: refreshToken,
-    expires_in: expiresInSeconds
+    id: user.id,
+    name: user.name,
+    lastname: user.lastname,
+    email: user.email,
+    role: user.role
   };
-};
+}
 
 /**
  * Servicio para autenticar a un usuario mediante sus credenciales de correo y contraseña.
@@ -131,4 +132,42 @@ const refreshTokenSvc = async (payload: RefreshTokenRequestDTO): Promise<AuthRes
   return generateAuthTokens(user);
 }
 
-export { loginSvc, refreshTokenSvc, registerSvc };
+/**
+ * Función auxiliar privada que genera un par de tokens JWT (access + refresh) para un usuario dado.
+ * Centraliza la lógica de firma para evitar duplicación (DRY) entre `loginSvc` y `registerSvc`.
+ *
+ * - **Access Token**: Contiene `sub`, `email` y `role`. Expira en `JWT_EXPIRES_IN` segundos (por defecto 15 min).
+ * - **Refresh Token**: Contiene únicamente `sub`. Expira en 7 días.
+ *
+ * @param user - Objeto con los datos mínimos del usuario necesarios para construir el payload del token.
+ * @returns Un `AuthResponseDTO` con los dos tokens firmados y el tiempo de expiración del access token.
+ */
+const generateAuthTokens = ({
+  id,
+  name,
+  lastname,
+  email,
+  role
+}: { id: number, name: string, lastname: string, email: string, role: string }): AuthResponseDTO => {
+  const expiresInSeconds = Number(JWT_EXPIRES_IN);
+
+  const accessToken = jwt.sign(
+    { sub: id, name, lastname, email, role },
+    JWT_ACCESS_SECRET,
+    { expiresIn: expiresInSeconds }
+  );
+
+  const refreshToken = jwt.sign(
+    { sub: id },
+    JWT_REFRESH_SECRET,
+    { expiresIn: '7d' }
+  );
+
+  return {
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    expires_in: expiresInSeconds
+  };
+};
+
+export { getMetSvc, loginSvc, refreshTokenSvc, registerSvc };
