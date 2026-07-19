@@ -1,14 +1,10 @@
 import prisma from "@core/database/postgres";
+import ENVS from "@core/environments";
 import AppError from "@core/errors";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import type { LoginRequestDTO, MeRequestDTO, RefreshTokenRequestDTO, RegisterRequestDTO } from "../dtos/request";
 import type { AuthResponseDTO, MeResponseDTO } from "../dtos/response";
-import ENVS from "@core/environments";
-
-const JWT_ACCESS_SECRET = ENVS.JWT_ACCESS_SECRET;
-const JWT_REFRESH_SECRET = ENVS.JWT_REFRESH_SECRET;
-const JWT_EXPIRES_IN = ENVS.JWT_EXPIRES_IN;
 
 /**
  * Resolves full entity identity verification bounds against active state definitions in the database.
@@ -117,7 +113,7 @@ const refreshTokenSvc = async (payload: RefreshTokenRequestDTO): Promise<AuthRes
 
   try {
     // 1. Verificar que el refresh token sea válido y no haya expirado
-    decoded = jwt.verify(payload.refresh_token, JWT_REFRESH_SECRET) as unknown as { sub: number };
+    decoded = jwt.verify(payload.refresh_token, ENVS.JWT_REFRESH_SECRET) as unknown as { sub: number };
   } catch {
     throw new AppError('Refresh token inválido o expirado. Por favor inicia sesión de nuevo.', 401);
   }
@@ -137,8 +133,8 @@ const refreshTokenSvc = async (payload: RefreshTokenRequestDTO): Promise<AuthRes
  * Función auxiliar privada que genera un par de tokens JWT (access + refresh) para un usuario dado.
  * Centraliza la lógica de firma para evitar duplicación (DRY) entre `loginSvc` y `registerSvc`.
  *
- * - **Access Token**: Contiene `sub`, `email` y `role`. Expira en `JWT_EXPIRES_IN` segundos (por defecto 15 min).
- * - **Refresh Token**: Contiene únicamente `sub`. Expira en 7 días.
+ * - **Access Token**: Contiene `sub`, `email` y `role`. Expira en `JWT_EXPIRES_IN` segundos 
+ * - **Refresh Token**: Contiene únicamente `sub`. Expira en `JWT_REFRESH_EXPIRES_IN` días.
  *
  * @param user - Objeto con los datos mínimos del usuario necesarios para construir el payload del token.
  * @returns Un `AuthResponseDTO` con los dos tokens firmados y el tiempo de expiración del access token.
@@ -150,24 +146,25 @@ const generateAuthTokens = ({
   email,
   role
 }: { id: number, name: string, lastname: string, email: string, role: string }): AuthResponseDTO => {
-  const expiresInSeconds = Number(JWT_EXPIRES_IN);
 
   const accessToken = jwt.sign(
     { sub: id, name, lastname, email, role },
-    JWT_ACCESS_SECRET,
-    { expiresIn: expiresInSeconds }
+    ENVS.JWT_ACCESS_SECRET,
+    { expiresIn: ENVS.JWT_EXPIRES_IN }
   );
 
   const refreshToken = jwt.sign(
     { sub: id },
-    JWT_REFRESH_SECRET,
-    { expiresIn: '7d' }
+    ENVS.JWT_REFRESH_SECRET,
+    { expiresIn: ENVS.JWT_REFRESH_EXPIRES_IN }
   );
 
   return {
     access_token: accessToken,
     refresh_token: refreshToken,
-    expires_in: expiresInSeconds
+    expires_in: typeof ENVS.JWT_EXPIRES_IN === 'number'
+      ? ENVS.JWT_EXPIRES_IN
+      : parseInt(ENVS.JWT_EXPIRES_IN, 10)
   };
 };
 
