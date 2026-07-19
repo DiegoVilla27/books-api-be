@@ -7,7 +7,7 @@
 [![Mongoose](https://img.shields.io/badge/Mongoose-v9.7.4-green.svg)](https://mongoosejs.com/)
 [![License](https://img.shields.io/badge/License-ISC-green.svg)](https://opensource.org/licenses/ISC)
 
-*Un ecosistema digital moderno, modular y de alto rendimiento para la gestión relacional de libros y usuarios, con encriptación nativa, seguridad JWT con rotación de Refresh Token y persistencia híbrida en PostgreSQL y MongoDB.*
+*Un ecosistema digital moderno, modular y de alto rendimiento para la gestión relacional de libros y usuarios, con encriptación nativa, seguridad JWT con rotación de Refresh Token, gestión unificada de variables de entorno y persistencia híbrida en PostgreSQL y MongoDB.*
 
 ---
 
@@ -19,7 +19,7 @@ El sistema implementa una persistencia de datos híbrida para optimizar las oper
 1. **PostgreSQL (SQL Transaccional):** Almacena de manera consistente la relación obligatoria `1 a N` entre **Usuarios** y **Libros** (no existen libros sin usuario propietario). Garantiza la integridad referencial y las transacciones ácidas (ACID).
 2. **MongoDB (NoSQL de Alta Escritura):** Diseñado para la captura de logs rápidos, métricas asíncronas y auditorías del sistema.
 
-Toda la base del código está 100% autodocumentada con **TSDoc** profesional y protegida por políticas estrictas de seguridad (hashing mediante **Bcrypt**, seguridad de sesiones basada en JWT, saneamiento contra inyecciones XSS, limitadores de tasa y control de tamaño de payloads).
+Toda la base del código está 100% autodocumentada con **TSDoc** profesional y protegida por políticas estrictas de seguridad (hashing mediante **Bcrypt**, seguridad de sesiones basada en JWT con expiración configurable, saneamiento contra inyecciones XSS, limitadores de tasa y control de tamaño de payloads).
 
 ---
 
@@ -27,8 +27,10 @@ Toda la base del código está 100% autodocumentada con **TSDoc** profesional y 
 
 | Icono | Componente de Funcionalidad | Impacto en el Negocio / Rendimiento |
 | :---: | :--- | :--- |
-| 🔑 | **Autenticación JWT con Refresh Token Rotation** | Firma de access tokens efímeros (15m) y refresh tokens de larga duración (7d). Rotación automática de tokens para invalidar sesiones previas y evitar la suplantación de identidad. |
-| 🛡️ | **Seguridad y Hashing Bcrypt** | Encriptación asíncrona de contraseñas de usuarios mediante hashes seguros. Prevención nativa de fugas de datos en respuestas JSON a través DTOs y Mappers. |
+| 🔑 | **Autenticación JWT con Refresh Token Rotation** | Firma de access tokens efímeros y refresh tokens de larga duración configurables. Rotación automática de tokens para invalidar sesiones previas y evitar la suplantación de identidad. |
+| ⚙️ | **Configuración Tipada Unificada (`ENVS`)** | Mapeo y validación centralizada de variables de entorno con TypeScript en un único punto de entrada (`src/core/environments`), eliminando lecturas directas propensas a errores en el código (`process.env`). |
+| 📊 | **Métricas Consolidadas de Dashboard** | Endpoint optimizado (`/dashboard/stats`) para la agregación paralela y rápida de métricas clave (libros totales, usuarios totales) exclusivo para administradores (`ADMIN`). |
+| 🛡️ | **Seguridad y Hashing Bcrypt** | Encriptación asíncrona de contraseñas de usuarios mediante hashes seguros. Prevención nativa de fugas de datos en respuestas JSON a través de DTOs y Mappers. |
 | 🛡️ | **Middleware unificado RBAC (`restrictTo`)** | Control de acceso basado en roles (RBAC) y validación de tokens unificados en un único middleware para evitar redundancias y mejorar el rendimiento de enrutamiento. |
 | 🔄 | **Borrado Lógico Inteligente (`isActive`)** | Inhabilitación segura de usuarios sin romper la integridad referencial en cascada de los libros asociados en PostgreSQL. |
 | 🔒 | **Filtros de Propiedad y Reglas de Dominio** | Restricciones avanzadas: un usuario `USER` no puede ver perfiles de administradores (retorna 404), y los libros solo pueden ser modificados o eliminados por sus propietarios o por administradores. |
@@ -55,6 +57,7 @@ books/
 │   │   ├── database/
 │   │   │   ├── mongo/      # Conexión a MongoDB utilizando Mongoose.
 │   │   │   └── postgres/   # Cliente de Prisma configurado con pg-driver-adapter.
+│   │   ├── environments/   # Configuración fuertemente tipada de variables de entorno (ENVS).
 │   │   ├── errors/         # Clase central AppError para el manejo de excepciones operacionales.
 │   │   ├── middlewares/    # Middlewares globales (ErrorHandler, restrictTo de seguridad unificada, Zod Validation).
 │   │   ├── router/         # Enrutador centralizado (Prefijado con /api/v1).
@@ -74,6 +77,11 @@ books/
 │   │   │   ├── routes/     # Rutas REST de libros protegidas con control de roles.
 │   │   │   ├── schemas/    # Esquemas Zod para validación de entrada.
 │   │   │   └── services/   # Lógica de libros con verificación estricta de propiedad/propietario.
+│   │   ├── dashboard/      # Módulo de Dashboard.
+│   │   │   ├── controllers/# Controladores para la exposición de estadísticas consolidadas.
+│   │   │   ├── dtos/       # DTOs de salida y tipado del dashboard (DashboardStatsResponseDTO).
+│   │   │   ├── routes/     # Rutas REST del dashboard protegidas por control de acceso ADMIN.
+│   │   │   └── services/   # Lógica de agregación paralela y consulta de contadores sobre la base de datos.
 │   │   └── users/          # Módulo de Usuarios.
 │   │       ├── controllers/# Controladores HTTP de usuarios y listas lookup.
 │   │       ├── dtos/       # DTOs de petición y respuesta (Omiten la contraseña).
@@ -81,7 +89,6 @@ books/
 │   │       ├── routes/     # Rutas REST de usuarios.
 │   │       ├── schemas/    # Esquemas Zod para la creación y edición parcial (strict) sin defaults problemáticos.
 │   │       └── services/   # Lógica del CRUD, filtrado selectivo de ADMINs a usuarios comunes y encriptación.
-│   └── index.ts            # Punto de entrada de la aplicación Express.
 │   └── index.ts            # Punto de entrada de la aplicación Express.
 ├── docker-compose.yml      # Orquestación local de PostgreSQL 15 y MongoDB.
 ├── package.json            # Scripts del sistema y dependencias declaradas.
@@ -199,6 +206,7 @@ El proyecto utiliza **Prisma 7**, cuya configuración y flujo de desarrollo requ
 | 🍃 | **mongoose** | `^9.7.4` | ODM para la gestión de logs en MongoDB. |
 | 🐘 | **pg** / **@prisma/adapter-pg** | `^8.22.0` | Adaptadores de conexión para PostgreSQL nativo. |
 | 🛡️ | **zod** / **sanitize-html** | `^4.4.3` | Validación estricta y protección contra inyecciones XSS. |
+| ⚙️ | **dotenv** | `^17.4.2` | Carga de variables de entorno desde archivos `.env`. |
 
 ### Dependencias de Desarrollo
 | Icono | Tecnología / Librería | Versión | Propósito en el Proyecto |
@@ -233,7 +241,8 @@ El proyecto utiliza **Prisma 7**, cuya configuración y flujo de desarrollo requ
    MONGO_URI="mongodb://localhost:27017/books_audits"
    JWT_ACCESS_SECRET="tu_secreto_super_seguro_access"
    JWT_REFRESH_SECRET="tu_secreto_super_seguro_refresh"
-   JWT_EXPIRES_IN=900
+   JWT_EXPIRES_IN=120
+   JWT_REFRESH_EXPIRES_IN=7d
    ```
 3. **Iniciar servicios de infraestructura:**
    ```bash

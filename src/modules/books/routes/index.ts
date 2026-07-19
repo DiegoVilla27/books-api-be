@@ -4,6 +4,8 @@ import { createBookCtrl, deleteBookCtrl, getBookByIdCtrl, getBooksCtrl, updateBo
 import { BookByIdSchema, CreateBookSchema, GetBooksQuerySchema, UpdateBookSchema } from "@modules/books/schemas";
 import { Router } from "express";
 
+const ENTITY_BASE = '/books';
+
 /**
  * Enrutador de Express encargado de exponer los endpoints CRUD del recurso Libros.
  * Aplica validaciones con esquemas de Zod e integra control de acceso basado
@@ -12,32 +14,32 @@ import { Router } from "express";
 const bookRoutes = Router();
 
 // Endpoint para el listado paginado de libros (Accesible por USER y ADMIN)
-bookRoutes.get('/books', [
+bookRoutes.get(ENTITY_BASE, [
   restrictTo('USER', 'ADMIN'),
   validateDataMiddleware(GetBooksQuerySchema)
 ], getBooksCtrl);
 
 // Endpoint para obtener el detalle de un libro por ID (Accesible por USER y ADMIN)
-bookRoutes.get('/books/:id', [
+bookRoutes.get(`${ENTITY_BASE}/:id`, [
   restrictTo('USER', 'ADMIN'),
   validateDataMiddleware(BookByIdSchema)
 ], getBookByIdCtrl);
 
 // Endpoint para registrar un nuevo libro (Accesible por USER y ADMIN)
-bookRoutes.post('/books', [
+bookRoutes.post(ENTITY_BASE, [
   restrictTo('USER', 'ADMIN'),
   validateDataMiddleware(CreateBookSchema)
 ], createBookCtrl);
 
 // Endpoint para actualizar parcialmente un libro por ID (Accesible por USER y ADMIN)
-bookRoutes.patch('/books/:id', [
+bookRoutes.patch(`${ENTITY_BASE}/:id`, [
   restrictTo('USER', 'ADMIN'),
   validateDataMiddleware(BookByIdSchema),
   validateDataMiddleware(UpdateBookSchema)
 ], updateBookCtrl);
 
 // Endpoint para eliminar físicamente un libro por ID (Accesible por USER y ADMIN)
-bookRoutes.delete('/books/:id', [
+bookRoutes.delete(`${ENTITY_BASE}/:id`, [
   restrictTo('USER', 'ADMIN'),
   validateDataMiddleware(BookByIdSchema)
 ], deleteBookCtrl);
