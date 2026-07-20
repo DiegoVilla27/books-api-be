@@ -248,12 +248,15 @@ El proyecto utiliza **Prisma 7**, cuya configuración y flujo de desarrollo requ
    ```bash
    docker compose up -d
    ```
-4. **Ejecutar migraciones y seeding inicial:**
+4. **Ejecutar migraciones y seeding inicial y resetear:**
    ```bash
    npx prisma migrate dev --name init
    ```
    ```bash
    npx prisma db seed
+   ```
+   ```bash
+   npx prisma migrate reset
    ```
 5. **Iniciar el servidor en modo desarrollo (Watch mode):**
    ```bash
