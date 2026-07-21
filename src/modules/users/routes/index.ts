@@ -1,3 +1,4 @@
+import { optionalAuth } from "@core/middlewares/optionalAuth";
 import { restrictTo } from "@core/middlewares/restrictTo";
 import validateDataMiddleware from "@core/middlewares/validateDataZod";
 import { checkEmailCtrl, createUserCtrl, deleteUserCtrl, getUserByIdCtrl, getUsersCtrl, getUsersLookupCtrl, updateUserCtrl } from "@modules/users/controllers";
@@ -13,9 +14,9 @@ const ENTITY_BASE = '/users';
  */
 const userRoutes = Router();
 
-// Endpoint para obtener la lista resumida/lookup (Solamente accesible por ADMIN)
+// Endpoint para obtener la lista resumida/lookup
 userRoutes.get(`${ENTITY_BASE}/lookup`, [
-  restrictTo('ADMIN')
+  optionalAuth,
 ], getUsersLookupCtrl);
 
 // Endpoint para verificar si un email existe
@@ -26,13 +27,13 @@ userRoutes.post(`${ENTITY_BASE}/check-email`, [
 
 // Endpoint para el listado paginado de usuarios (Accesible por USER y ADMIN)
 userRoutes.get(ENTITY_BASE, [
-  restrictTo('USER', 'ADMIN'),
+  restrictTo('ADMIN'),
   validateDataMiddleware(GetUsersQuerySchema)
 ], getUsersCtrl);
 
 // Endpoint para obtener un usuario por ID (Accesible por USER y ADMIN)
 userRoutes.get(`${ENTITY_BASE}/:id`, [
-  restrictTo('USER', 'ADMIN'),
+  restrictTo('ADMIN'),
   validateDataMiddleware(UserByIdSchema)
 ], getUserByIdCtrl);
 

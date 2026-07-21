@@ -13,12 +13,12 @@ import ENVS from '@core/environments';
 connectMongo();
 
 /**
- * Instancia principal de la aplicación Express.
+ * Main Express application instance configured with security headers, CORS, rate limiting, and core routes.
  */
 const app = express();
 
 /**
- * Puerto de escucha del servidor HTTP, configurado por variable de entorno `PORT` o `3000` por defecto.
+ * HTTP server listening port bound to the `PORT` environment configuration variable.
  */
 const PORT = ENVS.PORT;
 
@@ -26,8 +26,10 @@ const PORT = ENVS.PORT;
 app.use(helmet()); // Middleware para asegurar la app de diferentes ataques 
 app.use(express.json({ limit: '10kb' })); // Middleware para entender formato json en request and response y limitar tamaño
 
-/** Listado de orígenes CORS permitidos para interactuar con la API */
-const allowedOrigins = ['http://localhost:3000', 'http://localhost:4200'];
+/** 
+ * Allowed CORS origins whitelist permitted to cross-communicate with this API service.
+ */
+const allowedOrigins = ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:4200'];
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -58,9 +60,11 @@ app.use(rateLimit({
 app.use(routes);
 
 /**
- * Endpoint público de comprobación de estado de la API (Health Check).
+ * Public health-check endpoint for system monitoring and load balancer sanity checks.
  * 
- * @returns Retorna un JSON con estado 'UP' y la marca de tiempo del sistema.
+ * @param _ - Express request object (unused).
+ * @param res - Express response object.
+ * @returns JSON payload containing system status `UP` and current server timestamp.
  */
 app.get('/health', (_: Request, res: Response) => {
   res.status(200).json({ status: 'UP', timestamp: new Date() });

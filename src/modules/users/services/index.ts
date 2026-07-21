@@ -5,8 +5,8 @@ import { removeDataUndefined } from "@core/utils/removeDataUndefined";
 import bcrypt from "bcrypt";
 import type { CreateUserRequestDTO, UpdateUserRequestDTO } from "../dtos/request";
 import type { UserResponseDTO } from "../dtos/response";
-import { toUserResponseDTO, toUserResponseDTOs } from "../mappers";
 import type { UsersPaginationQuery } from "../entities";
+import { toUserResponseDTO, toUserResponseDTOs } from "../mappers";
 
 /**
  * Servicio para obtener un listado resumido e incondicional de todos los usuarios
@@ -14,8 +14,13 @@ import type { UsersPaginationQuery } from "../entities";
  * 
  * @returns Promesa que resuelve a un arreglo de objetos con id, nombre y apellido.
  */
-const getUsersLookupSvc = async (): Promise<Pick<UserResponseDTO, 'id' | 'name' | 'lastname'>[]> => {
+const getUsersLookupSvc = async (
+  requestingUser?: { role: string }
+): Promise<Pick<UserResponseDTO, 'id' | 'name' | 'lastname'>[]> => {
+  const isAdmin = requestingUser?.role === 'ADMIN';
+
   return await prisma.user.findMany({
+    where: isAdmin ? {} : { role: { not: 'ADMIN' } },
     select: {
       id: true,
       name: true,
@@ -37,7 +42,6 @@ const getUsersLookupSvc = async (): Promise<Pick<UserResponseDTO, 'id' | 'name' 
  * @returns Promesa que resuelve a un objeto paginado de tipo `UserResponseDTO`.
  */
 const getAllUsersSvc = async (
-  requestingRole: string,
   filters: UsersPaginationQuery
 ): Promise<IPagination<UserResponseDTO>> => {
   const { page, limit, search, role, isActive } = filters;
@@ -46,12 +50,6 @@ const getAllUsersSvc = async (
 
   // Creamos un array vacío de condiciones que Prisma unirá con un AND
   const conditions: any[] = [];
-
-  // 1. Filtro de seguridad por rol (mismo que ya tenías)
-  // Si el que consulta no es ADMIN, lo obligamos a ver solo "USER"
-  if (requestingRole !== 'ADMIN') {
-    conditions.push({ role: 'USER' as const });
-  }
 
   // 2. Filtro de búsqueda (solo si llega y no está vacío)
   if (search && search.trim() !== '') {
@@ -112,16 +110,15 @@ const getAllUsersSvc = async (
  * @param requestingRole - Rol del usuario que realiza la consulta.
  * @returns Promesa que resuelve a un `UserResponseDTO` si el usuario existe y está autorizado, o `null`.
  */
-const getUserByIdSvc = async (id: number, requestingRole: string): Promise<UserResponseDTO | null> => {
+const getUserByIdSvc = async (id: number): Promise<UserResponseDTO> => {
   const userFind = await prisma.user.findUnique({
     where: { id },
     include: { _count: { select: { books: true } } }
   });
 
-  if (!userFind) return null;
-
-  // Un USER no puede ver el perfil de un ADMIN aunque adivine el ID
-  if (userFind.role === 'ADMIN' && requestingRole !== 'ADMIN') return null;
+  if (!userFind) {
+    throw new AppError("Usuario no encontrado", 404);
+  }
 
   return toUserResponseDTO(userFind);
 }
@@ -133,10 +130,11 @@ const getUserByIdSvc = async (id: number, requestingRole: string): Promise<UserR
  * 
  * @param user - DTO con los datos del usuario requeridos en la creación.
  * @returns Promesa que resuelve a los datos del usuario creado en formato `UserResponseDTO`.
- * @throws {AppError} Lanza un error 400 si el email del usuario ya está en uso.
+ * @throws AppError - Lanza un error 400 si el email del usuario ya está en uso.
  */
 const createUserSvc = async (user: CreateUserRequestDTO): Promise<UserResponseDTO> => {
   const emailExists = await prisma.user.findUnique({ where: { email: user.email } });
+
   if (emailExists) {
     throw new AppError("El correo electrónico ya está registrado", 400);
   }
@@ -158,7 +156,7 @@ const createUserSvc = async (user: CreateUserRequestDTO): Promise<UserResponseDT
  * @param id - Identificador único del usuario a actualizar.
  * @param user - DTO que contiene de manera opcional las propiedades que se desean modificar.
  * @returns Promesa que devuelve la representación del usuario actualizado en `UserResponseDTO`.
- * @throws {AppError} Si el ID especificado no pertenece a ningún usuario (404).
+ * @throws AppError - Si el ID especificado no pertenece a ningún usuario (404).
  */
 const updateUserSvc = async (id: number, user: UpdateUserRequestDTO): Promise<UserResponseDTO> => {
   // Verificar existencia antes del update para evitar errores de Prisma
@@ -169,6 +167,7 @@ const updateUserSvc = async (id: number, user: UpdateUserRequestDTO): Promise<Us
   }
 
   const userClean = removeDataUndefined(user);
+
   const userUpdated = await prisma.user.update({
     where: { id },
     data: userClean,
@@ -184,7 +183,7 @@ const updateUserSvc = async (id: number, user: UpdateUserRequestDTO): Promise<Us
  * 
  * @param id - Identificador único del usuario a inhabilitar.
  * @returns Promesa con los datos formateados del usuario inhabilitado (`UserResponseDTO`).
- * @throws {AppError} Si el ID especificado no se encuentra (404).
+ * @throws AppError - Si el ID especificado no se encuentra (404).
  */
 const deleteUserSvc = async (id: number): Promise<UserResponseDTO> => {
   // Verificar existencia antes del update para evitar errores de Prisma
@@ -214,4 +213,5 @@ const checkEmailSvc = async (email: string): Promise<boolean> => {
   return !!emailExists;
 }
 
-export { getUsersLookupSvc, createUserSvc, deleteUserSvc, getAllUsersSvc, getUserByIdSvc, updateUserSvc, checkEmailSvc };
+export { checkEmailSvc, createUserSvc, deleteUserSvc, getAllUsersSvc, getUserByIdSvc, getUsersLookupSvc, updateUserSvc };
+

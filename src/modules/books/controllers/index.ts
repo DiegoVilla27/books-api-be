@@ -14,8 +14,9 @@ import type { BooksPaginationQuery } from "../entities";
 const getBooksCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filters = req.query as unknown as BooksPaginationQuery;
+    const requestingUser = req.user;
 
-    const books = await getAllBooksSvc(filters);
+    const books = await getAllBooksSvc(filters, requestingUser);
 
     return res.status(200).json(books);
   } catch (e) {
@@ -31,15 +32,14 @@ const getBooksCtrl = async (req: Request, res: Response, next: NextFunction) => 
  * @param res - Objeto de respuesta de Express. Retorna el detalle del libro en formato `BookResponseDTO`.
  * @param next - Función de Express para pasar el control al manejador global de errores.
  * 
- * @throws {AppError} Retorna un error 404 si el libro no existe en la base de datos.
+ * @throws AppError - Retorna un error 404 si el libro no existe en la base de datos.
  */
 const getBookByIdCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params as unknown as { id: number };
+    const requestingUser = req.user;
 
-    const bookById = await getBookByIdSvc(id);
-
-    if (!bookById) return next(new AppError('Libro no encontrado', 404));
+    const bookById = await getBookByIdSvc(id, requestingUser);
 
     return res.status(200).json(bookById);
   } catch (e) {
@@ -52,14 +52,26 @@ const getBookByIdCtrl = async (req: Request, res: Response, next: NextFunction) 
  * Controlador para crear un nuevo libro asociado a un usuario.
  * 
  * @param req - Objeto de petición de Express. Espera los datos en el cuerpo (`body`) validados por `CreateBookRequestDTO`.
- * @param res - Objeto de respuesta de Express. Retorna el libro recién creado en formato `BookResponseDTO` (estado 200).
+ * @param res - Objeto de respuesta de Express. Retorna el libro recién creado en formato `BookResponseDTO` (estado 201).
  * @param next - Función de Express para delegar errores.
  */
 const createBookCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const newBook = await createBookSvc(req.body);
+    const authUser = req.user!;
+    let targetUserId: number;
 
-    return res.status(200).json(newBook);
+    // 🟢 Regla de Negocio
+    if (authUser.role === 'ADMIN' && req.body.userId) {
+      // El ADMIN especifica a qué usuario le creará el libro
+      targetUserId = req.body.userId;
+    } else {
+      // El USER normal siempre asigna su propia ID (evita suplantación de identidad)
+      targetUserId = authUser.id;
+    }
+
+    const newBook = await createBookSvc({ ...req.body, userId: targetUserId });
+
+    return res.status(201).json(newBook);
   } catch (e) {
     console.log(`Error al crear el libro: ${e}`);
     return next(e);
@@ -96,7 +108,7 @@ const updateBookCtrl = async (req: Request, res: Response, next: NextFunction) =
  * @param res - Objeto de respuesta de Express. Retorna el objeto del libro eliminado en formato `BookResponseDTO`.
  * @param next - Función de Express para delegar errores.
  * 
- * @throws {AppError} Retorna un error 404 si el libro que se desea eliminar no existe o 403 si carece de autorización.
+ * @throws AppError - Retorna un error 404 si el libro que se desea eliminar no existe o 403 si carece de autorización.
  */
 const deleteBookCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -104,8 +116,6 @@ const deleteBookCtrl = async (req: Request, res: Response, next: NextFunction) =
     const requestingUser = req.user!;
 
     const deleteBook = await deleteBookSvc(id, requestingUser);
-
-    if (!deleteBook) return next(new AppError('Libro no encontrado', 404));
 
     return res.status(200).json(deleteBook);
   } catch (e) {

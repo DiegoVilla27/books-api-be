@@ -1,4 +1,3 @@
-import AppError from "@core/errors";
 import { checkEmailSvc, createUserSvc, deleteUserSvc, getAllUsersSvc, getUserByIdSvc, getUsersLookupSvc, updateUserSvc } from "@modules/users/services";
 import type { NextFunction, Request, Response } from "express";
 import type { UsersPaginationQuery } from "../entities";
@@ -7,13 +6,15 @@ import type { UsersPaginationQuery } from "../entities";
  * Controlador para obtener un listado simplificado de todos los usuarios.
  * Retorna únicamente el ID, nombre y apellido para alimentar selectores y listas de asignación.
  * 
- * @param _ - Objeto de petición de Express (no utilizado).
+ * @param req - Objeto de petición de Express.
  * @param res - Objeto de respuesta de Express. Retorna el listado de lookup con código 200.
  * @param next - Función de Express para delegar errores.
  */
-const getUsersLookupCtrl = async (_: Request, res: Response, next: NextFunction) => {
+const getUsersLookupCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const users = await getUsersLookupSvc();
+    const requestingUser = req.user;
+
+    const users = await getUsersLookupSvc(requestingUser);
 
     return res.status(200).json(users);
   } catch (e) {
@@ -33,9 +34,8 @@ const getUsersLookupCtrl = async (_: Request, res: Response, next: NextFunction)
 const getUsersCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filters = req.query as unknown as UsersPaginationQuery;
-    const requestingRole = req.user!.role; // Extraemos el rol del token JWT
 
-    const users = await getAllUsersSvc(requestingRole, filters);
+    const users = await getAllUsersSvc(filters);
 
     return res.status(200).json(users);
   } catch (e) {
@@ -51,16 +51,13 @@ const getUsersCtrl = async (req: Request, res: Response, next: NextFunction) => 
  * @param req - Objeto de petición de Express con el parámetro `id` en la ruta.
  * @param res - Objeto de respuesta de Express. Devuelve el `UserResponseDTO` correspondiente.
  * @param next - Función para pasar el control al siguiente middleware.
- * @throws {AppError} Retorna un error 404 si el usuario no existe o no tiene permisos de lectura sobre él.
+ * @throws AppError - Retorna un error 404 si el usuario no existe o no tiene permisos de lectura sobre él.
  */
 const getUserByIdCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params as unknown as { id: number };
-    const requestingRole = req.user!.role;
 
-    const userById = await getUserByIdSvc(id, requestingRole);
-
-    if (!userById) return next(new AppError('Usuario no encontrado', 404));
+    const userById = await getUserByIdSvc(id);
 
     return res.status(200).json(userById);
   } catch (e) {
@@ -73,14 +70,14 @@ const getUserByIdCtrl = async (req: Request, res: Response, next: NextFunction) 
  * Controlador para la creación (registro) de un nuevo usuario en el sistema.
  * 
  * @param req - Objeto de petición de Express con el body validado según `CreateUserRequestDTO`.
- * @param res - Objeto de respuesta de Express. Retorna el usuario creado en formato `UserResponseDTO` (código 200).
+ * @param res - Objeto de respuesta de Express. Retorna el usuario creado en formato `UserResponseDTO` (código 201).
  * @param next - Función de Express para delegar errores.
  */
 const createUserCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const newUser = await createUserSvc(req.body);
 
-    return res.status(200).json(newUser);
+    return res.status(201).json(newUser);
   } catch (e) {
     console.log(`Error al crear el usuario: ${e}`);
     return next(e);
@@ -93,15 +90,13 @@ const createUserCtrl = async (req: Request, res: Response, next: NextFunction) =
  * @param req - Objeto de petición de Express con el `id` en parámetros y los campos del `body` validados por `UpdateUserRequestDTO`.
  * @param res - Objeto de respuesta de Express. Retorna el usuario actualizado en formato `UserResponseDTO`.
  * @param next - Función de Express para delegar errores.
- * @throws {AppError} Retorna un error 404 si el usuario a actualizar no existe.
+ * @throws AppError - Retorna un error 404 si el usuario a actualizar no existe.
  */
 const updateUserCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params as unknown as { id: number };
 
     const updatedUser = await updateUserSvc(id, req.body);
-
-    if (!updatedUser) return next(new AppError('Usuario no encontrado', 404));
 
     return res.status(200).json(updatedUser);
   } catch (e) {
@@ -117,15 +112,13 @@ const updateUserCtrl = async (req: Request, res: Response, next: NextFunction) =
  * @param req - Objeto de petición de Express con el `id` a inhabilitar en los parámetros de ruta.
  * @param res - Objeto de respuesta de Express. Devuelve los datos del usuario inhabilitado en formato `UserResponseDTO`.
  * @param next - Función de Express para delegar errores.
- * @throws {AppError} Retorna un error 404 si el usuario no existe.
+ * @throws AppError - Retorna un error 404 si el usuario no existe.
  */
 const deleteUserCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params as unknown as { id: number };
 
     const deletedUser = await deleteUserSvc(id);
-
-    if (!deletedUser) return next(new AppError('Usuario no encontrado', 404));
 
     return res.status(200).json(deletedUser);
   } catch (e) {
