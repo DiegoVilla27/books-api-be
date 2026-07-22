@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import AppError from '@core/errors';
 import ENVS from '@core/environments';
-import prisma from '@core/database/postgres';
+import prisma from '@core/databases/postgres';
 import type { RoleUser } from '@modules/users/entities';
 
 const JWT_ACCESS_SECRET = ENVS.JWT_ACCESS_SECRET;

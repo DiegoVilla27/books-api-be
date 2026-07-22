@@ -1,13 +1,13 @@
-import prisma from "@core/database/postgres";
+import prisma from "@core/databases/postgres";
 import AppError from "@core/errors";
 import type { IPagination } from "@core/types/pagination";
 import { removeDataUndefined } from "@core/utils/removeDataUndefined";
+import type { UserResponseDTO } from "@modules/users/dtos/response";
 import type { RoleUser } from "@modules/users/entities";
 import type { CreateBookRequestDTO, UpdateBookRequestDTO } from "../dtos/request";
 import type { BookResponseDTO } from "../dtos/response";
 import type { BooksPaginationQuery } from "../entities";
 import { toBookResponseDTO, toBookResponseDTOs } from "../mappers";
-import type { UserResponseDTO } from "@modules/users/dtos/response";
 
 /**
  * Servicio para obtener una lista paginada de libros.
@@ -162,9 +162,20 @@ const getBookByIdSvc = async (id: number, userRole?: RoleUser): Promise<BookResp
  * });
  * ```
  */
-const createBookSvc = async (book: CreateBookRequestDTO): Promise<BookResponseDTO> => {
+const createBookSvc = async (
+  book: CreateBookRequestDTO,
+  userAuth?: Pick<UserResponseDTO, "id" | "role">
+): Promise<BookResponseDTO> => {
+
+  if (!userAuth) {
+    throw new AppError("No se pudo obtener la información del usuario", 401);
+  }
+
+  const isAdmin = userAuth.role === 'ADMIN';
+  const targetUserId = (isAdmin && book.userId) ? book.userId : userAuth.id;
+
   const bookCreated = await prisma.book.create({
-    data: book,
+    data: { ...book, userId: targetUserId },
     include: {
       user: {
         select: {
@@ -302,4 +313,22 @@ const deleteBookSvc = async (
   return toBookResponseDTO(bookDeleted);
 }
 
-export { createBookSvc, deleteBookSvc, getAllBooksSvc, getBookByIdSvc, updateBookSvc };
+const myBooksSvc = (
+  filters: BooksPaginationQuery,
+  userAuth?: Pick<UserResponseDTO, "id" | "role">
+): Promise<IPagination<BookResponseDTO>> => {
+
+  if (!userAuth) {
+    throw new AppError("No se pudo obtener la información del usuario", 401);
+  }
+
+  return getAllBooksSvc({ ...filters, userId: userAuth.id }, userAuth.role);
+}
+
+export {
+  createBookSvc,
+  deleteBookSvc,
+  getAllBooksSvc,
+  getBookByIdSvc, myBooksSvc, updateBookSvc
+};
+

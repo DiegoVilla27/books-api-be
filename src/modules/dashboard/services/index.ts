@@ -1,4 +1,4 @@
-import prisma from "@core/database/postgres";
+import prisma from "@core/databases/postgres";
 import type { DashboardHistoryResponseDTO, DashboardStatsResponseDTO } from "../dtos/response";
 
 /**

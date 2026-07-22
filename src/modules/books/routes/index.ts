@@ -1,8 +1,20 @@
 import { optionalAuth } from "@core/middlewares/optionalAuth";
 import { restrictTo } from "@core/middlewares/restrictTo";
 import validateDataMiddleware from "@core/middlewares/validateDataZod";
-import { createBookCtrl, deleteBookCtrl, getBookByIdCtrl, getBooksCtrl, updateBookCtrl } from "@modules/books/controllers";
-import { BookByIdSchema, CreateBookSchema, GetBooksQuerySchema, UpdateBookSchema } from "@modules/books/schemas";
+import {
+  createBookCtrl,
+  deleteBookCtrl,
+  getBookByIdCtrl,
+  getBooksCtrl,
+  getMyBooksCtrl,
+  updateBookCtrl
+} from "@modules/books/controllers";
+import {
+  BookByIdSchema,
+  CreateBookSchema,
+  GetBooksQuerySchema,
+  UpdateBookSchema
+} from "@modules/books/schemas";
 import { Router } from "express";
 
 const ENTITY_BASE = '/books';
@@ -19,6 +31,11 @@ bookRoutes.get(ENTITY_BASE, [
   optionalAuth,
   validateDataMiddleware(GetBooksQuerySchema)
 ], getBooksCtrl);
+
+bookRoutes.get(`${ENTITY_BASE}/my-books`, [
+  restrictTo('USER', 'ADMIN'),
+  validateDataMiddleware(GetBooksQuerySchema)
+], getMyBooksCtrl);
 
 // Endpoint para obtener el detalle de un libro por ID
 bookRoutes.get(`${ENTITY_BASE}/:id`, [

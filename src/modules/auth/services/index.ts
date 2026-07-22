@@ -1,4 +1,4 @@
-import prisma from "@core/database/postgres";
+import prisma from "@core/databases/postgres";
 import ENVS from "@core/environments";
 import AppError from "@core/errors";
 import bcrypt from "bcrypt";

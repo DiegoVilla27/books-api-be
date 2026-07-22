@@ -1,4 +1,11 @@
-import { createBookSvc, deleteBookSvc, getAllBooksSvc, getBookByIdSvc, updateBookSvc } from "@modules/books/services";
+import {
+  createBookSvc,
+  deleteBookSvc,
+  getAllBooksSvc,
+  getBookByIdSvc,
+  myBooksSvc,
+  updateBookSvc
+} from "@modules/books/services";
 import type { NextFunction, Request, Response } from "express";
 import type { BooksPaginationQuery } from "../entities";
 
@@ -83,19 +90,7 @@ const getBookByIdCtrl = async (req: Request, res: Response, next: NextFunction) 
  */
 const createBookCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const authUser = req.user!;
-    let targetUserId: number;
-
-    // 🟢 Regla de Negocio
-    if (authUser.role === 'ADMIN' && req.body.userId) {
-      // El ADMIN especifica a qué usuario le creará el libro
-      targetUserId = req.body.userId;
-    } else {
-      // El USER normal siempre asigna su propia ID (evita suplantación de identidad)
-      targetUserId = authUser.id;
-    }
-
-    const newBook = await createBookSvc({ ...req.body, userId: targetUserId });
+    const newBook = await createBookSvc(req.body, req.user);
 
     return res.status(201).json(newBook);
   } catch (e) {
@@ -168,4 +163,24 @@ const deleteBookCtrl = async (req: Request, res: Response, next: NextFunction) =
   }
 }
 
-export { createBookCtrl, deleteBookCtrl, getBookByIdCtrl, getBooksCtrl, updateBookCtrl };
+const getMyBooksCtrl = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const filters = req.query as unknown as BooksPaginationQuery;
+
+    const books = await myBooksSvc(filters, req.user);
+
+    return res.status(200).json(books);
+  } catch (e) {
+    console.log(`Error al obtener mis libros: ${e}`);
+    return next(e);
+  }
+}
+
+export {
+  createBookCtrl,
+  deleteBookCtrl,
+  getBookByIdCtrl,
+  getBooksCtrl,
+  updateBookCtrl,
+  getMyBooksCtrl
+};

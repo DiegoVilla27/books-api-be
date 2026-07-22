@@ -1,4 +1,4 @@
-import prisma from "@core/database/postgres";
+import prisma from "@core/databases/postgres";
 import AppError from "@core/errors";
 import type { IPagination } from "@core/types/pagination";
 import { removeDataUndefined } from "@core/utils/removeDataUndefined";
@@ -96,10 +96,6 @@ const getMeSvc = async (userId?: number): Promise<MeResponseDTO> => {
 const getUsersLookupSvc = async (
   userRole?: RoleUser
 ): Promise<Pick<UserResponseDTO, 'id' | 'name' | 'lastname'>[]> => {
-  if (!userRole) {
-    throw new AppError("No se pudo obtener la información del usuario", 401);
-  }
-
   const isAdmin = userRole === 'ADMIN';
 
   return await prisma.user.findMany({

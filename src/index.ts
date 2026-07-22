@@ -5,12 +5,8 @@ import routes from '@core/router';
 import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
-import { connectMongo } from '@core/database/mongo';
 import globalErrorHandler from '@core/middlewares/errorHandler';
 import ENVS from '@core/environments';
-
-// Inicia conexión a mongodb
-connectMongo();
 
 /**
  * Main Express application instance configured with security headers, CORS, rate limiting, and core routes.

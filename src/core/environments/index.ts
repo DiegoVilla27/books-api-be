@@ -3,12 +3,23 @@ import type { StringValue } from 'ms';
 interface EnvironmentConfig {
   readonly NODE_ENV: string;
   readonly PORT: number;
+  // PostgreSQL & MongoDB
   readonly POSTGRES_URI: string;
   readonly MONGO_URI: string;
+  // JWT
   readonly JWT_ACCESS_SECRET: string;
   readonly JWT_REFRESH_SECRET: string;
   readonly JWT_EXPIRES_IN: number | StringValue;
   readonly JWT_REFRESH_EXPIRES_IN: StringValue;
+  // Redis(Caché local)
+  readonly REDIS_HOST: string;
+  readonly REDIS_PORT: number;
+  // RabbitMQ (Cola de mensajes para Express -> Spring Boot)
+  readonly RABBITMQ_USER: string;
+  readonly RABBITMQ_PASS: string;
+  readonly RABBITMQ_URL: string;
+  // Kafka (Event Stream)
+  readonly KAFKA_BROKERS: string;
 }
 
 const parseExpiresIn = (val: string | undefined, fallback: string): number | StringValue => {
@@ -27,7 +38,13 @@ const ENVS: EnvironmentConfig = {
   JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET || "jwtaccess",
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || "jwtrefresh",
   JWT_EXPIRES_IN: parseExpiresIn(process.env.JWT_EXPIRES_IN, "3600"),
-  JWT_REFRESH_EXPIRES_IN: parseExpiresIn(process.env.JWT_REFRESH_EXPIRES_IN, "7d") as StringValue
+  JWT_REFRESH_EXPIRES_IN: parseExpiresIn(process.env.JWT_REFRESH_EXPIRES_IN, "7d") as StringValue,
+  REDIS_HOST: process.env.REDIS_HOST || "localhost",
+  REDIS_PORT: parseInt(process.env.REDIS_PORT || "6379", 10),
+  RABBITMQ_USER: process.env.RABBITMQ_USER || "guest",
+  RABBITMQ_PASS: process.env.RABBITMQ_PASS || "guest",
+  RABBITMQ_URL: process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672",
+  KAFKA_BROKERS: process.env.KAFKA_BROKERS || "localhost:9092"
 };
 
 export default ENVS;

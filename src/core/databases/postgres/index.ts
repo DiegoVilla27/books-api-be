@@ -1,7 +1,7 @@
-import { Pool } from 'pg';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from "@core/database/postgres/generated/prisma/client";
+import { PrismaClient } from "@core/databases/postgres/generated/prisma/client";
 import ENVS from '@core/environments';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 
 /**
  * Cadena de conexión de PostgreSQL obtenida de las variables de entorno.
@@ -27,5 +27,14 @@ const adapter = new PrismaPg(pool);
  * Debe ser importado en los servicios para realizar operaciones sobre la base de datos.
  */
 const prisma = new PrismaClient({ adapter });
+
+// 🟢 Conexión y verificación del estado de PostgreSQL
+prisma.$connect()
+  .then(() => {
+    console.log('🟢 Conexión a PostgreSQL (Prisma) establecida correctamente.');
+  })
+  .catch((error) => {
+    console.error('🔴 Error al conectar con PostgreSQL:', error);
+  });
 
 export default prisma;
