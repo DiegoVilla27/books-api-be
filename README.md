@@ -4,22 +4,29 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-v7.0.2-blue.svg)](https://www.typescriptlang.org/)
 [![Express](https://img.shields.io/badge/Express-v5.2.1-lightgrey.svg)](https://expressjs.com/)
 [![Prisma](https://img.shields.io/badge/Prisma-v7.8.0-blue.svg)](https://www.prisma.io/)
-[![Mongoose](https://img.shields.io/badge/Mongoose-v9.7.4-green.svg)](https://mongoosejs.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-v15--alpine-blue.svg)](https://www.postgresql.org/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-v8.0-green.svg)](https://www.mongodb.com/)
+[![Redis](https://img.shields.io/badge/Redis-v7--alpine-red.svg)](https://redis.io/)
+[![RabbitMQ](https://img.shields.io/badge/RabbitMQ-v3--management-orange.svg)](https://www.rabbitmq.com/)
+[![Apache Kafka](https://img.shields.io/badge/Apache%20Kafka-v3.7-black.svg)](https://kafka.apache.org/)
 [![License](https://img.shields.io/badge/License-ISC-green.svg)](https://opensource.org/licenses/ISC)
 
-*Un ecosistema digital moderno, modular y de alto rendimiento para la gestión relacional de libros y usuarios, con encriptación nativa, seguridad JWT con rotación de Refresh Token, gestión unificada de variables de entorno y persistencia híbrida en PostgreSQL y MongoDB.*
+*Un ecosistema digital moderno, modular y de alto rendimiento para la gestión relacional de libros y usuarios, con encriptación nativa, seguridad JWT con rotación de Refresh Token, gestión unificada de variables de entorno, arquitectura desacoplada lista para auditorías asíncronas de microservicios e infraestructura multi-contenedor (PostgreSQL, MongoDB, Redis, RabbitMQ, Kafka).*
 
 ---
 
 ## 📖 Resumen Técnico y Propósito del Sistema
 
-Esta aplicación es una API REST empresarial desarrollada bajo los paradigmas de **Código Limpio**, **Separación de Responsabilidades (SoC)** y **Desacoplamiento de Capas**, utilizando **Express v5**, **TypeScript v7** y **Prisma v7**. 
+Esta aplicación es una API REST empresarial desarrollada bajo los paradigmas de **Código Limpio**, **Separación de Responsabilidades (SoC)** y **Desacoplamiento de Capas**, utilizando **Express v5**, **TypeScript v7** y **Prisma v7**.
 
-El sistema implementa una persistencia de datos híbrida para optimizar las operaciones de negocio y las auditorías de rendimiento:
-1. **PostgreSQL (SQL Transaccional):** Almacena de manera consistente la relación obligatoria `1 a N` entre **Usuarios** y **Libros** (no existen libros sin usuario propietario). Garantiza la integridad referencial y las transacciones ácidas (ACID).
-2. **MongoDB (NoSQL de Alta Escritura):** Diseñado para la captura de logs rápidos, métricas asíncronas y auditorías del sistema.
+El sistema implementa una infraestructura multi-servicio orientada a persistencia híbrida y preparación para auditorías distribuídas de microservicios:
 
-Toda la base del código está 100% autodocumentada con **TSDoc** profesional y protegida por políticas estrictas de seguridad (hashing mediante **Bcrypt**, seguridad de sesiones basada en JWT con expiración configurable, saneamiento contra inyecciones XSS, limitadores de tasa y control de tamaño de payloads).
+1. **PostgreSQL 15 (SQL Transaccional):** Almacena de manera consistente la relación obligatoria `1 a N` entre **Usuarios** y **Libros** (no existen libros sin usuario propietario). Garantiza la integridad referencial y las transacciones ACID con verificación activa de conexión mediante `prisma.$connect()`.
+2. **MongoDB (NoSQL de Alta Escritura):** Diseñado para la captura de logs rápidos, métricas asíncronas y registros de auditoría sin impactar la base relacional principal.
+3. **Redis 7 (Caché en Memoria):** Infraestructura integrada para acelerar lecturas frecuentes y reducir la carga de consultas sobre PostgreSQL.
+4. **RabbitMQ & Apache Kafka (Message Brokers / Event Streaming):** Colas de mensajes asíncronas preparadas para transmitir eventos de mutación (`CREATE`, `UPDATE`, `DELETE`) hacia microservicios externos (como Spring Boot Audit Service).
+
+Toda la base del código está 100% autodocumentada con **TSDoc** profesional de nivel empresarial y protegida por políticas estrictas de seguridad (hashing mediante **Bcrypt**, seguridad de sesiones basada en JWT con expiración configurable, saneamiento contra inyecciones XSS, limitadores de tasa y control de tamaño de payloads).
 
 ---
 
@@ -28,15 +35,17 @@ Toda la base del código está 100% autodocumentada con **TSDoc** profesional y 
 | Icono | Componente de Funcionalidad | Impacto en el Negocio / Rendimiento |
 | :---: | :--- | :--- |
 | 🔑 | **Autenticación JWT con Refresh Token Rotation** | Firma de access tokens efímeros y refresh tokens de larga duración configurables. Rotación automática de tokens para invalidar sesiones previas y evitar la suplantación de identidad. |
-| ⚙️ | **Configuración Tipada Unificada (`ENVS`)** | Mapeo y validación centralizada de variables de entorno con TypeScript en un único punto de entrada (`src/core/environments`), eliminando lecturas directas propensas a errores en el código (`process.env`). |
-| 📊 | **Métricas Consolidadas de Dashboard** | Endpoint optimizado (`/dashboard/stats`) para la agregación paralela y rápida de métricas clave (libros totales, usuarios totales) exclusivo para administradores (`ADMIN`). |
+| ⚙️ | **Configuración Tipada Unificada (`ENVS`)** | Mapeo y validación centralizada de variables de entorno con TypeScript en `src/core/environments`, incluyendo credenciales de PostgreSQL, Mongo, Redis, RabbitMQ y Kafka. |
+| 📊 | **Métricas Consolidadas de Dashboard** | Endpoint optimizado (`/dashboard/stats` y `/dashboard/history`) para la agregación paralela de métricas clave (libros totales, usuarios totales) exclusivo para administradores (`ADMIN`). |
 | 🛡️ | **Seguridad y Hashing Bcrypt** | Encriptación asíncrona de contraseñas de usuarios mediante hashes seguros. Prevención nativa de fugas de datos en respuestas JSON a través de DTOs y Mappers. |
 | 🛡️ | **Middleware unificado RBAC (`restrictTo`)** | Control de acceso basado en roles (RBAC) y validación de tokens unificados en un único middleware para evitar redundancias y mejorar el rendimiento de enrutamiento. |
 | 🔄 | **Borrado Lógico Inteligente (`isActive`)** | Inhabilitación segura de usuarios sin romper la integridad referencial en cascada de los libros asociados en PostgreSQL. |
 | 🔒 | **Filtros de Propiedad y Reglas de Dominio** | Restricciones avanzadas: un usuario `USER` no puede ver perfiles de administradores (retorna 404), y los libros solo pueden ser modificados o eliminados por sus propietarios o por administradores. |
-| 🚀 | **Validación Strict con Zod** | Validación estricta en el body, query y params de Express, filtrando propiedades desconocidas (strip) y rechazando payloads inválidos. |
-| 📦 | **Arquitectura Modular Desacoplada** | Estructuración por capas independientes (`entities`, `models`, `mappers`, `dtos`, `schemas`) que aísla la base de datos de la lógica de negocio y del cliente. |
-| ⚡ | **Persistencia Híbrida & Prisma 7** | Utilización de Prisma 7 con Driver Adapters basados en WebAssembly/Node y transacciones optimizadas sobre PostgreSQL. |
+| 🚀 | **Validación Strict con Zod** | Validación estricta en el body, query y params de Express, filtrando propiedades desconocidas (`.strict()`) y rechazando payloads inválidos. |
+| 🟢 | **Verificación de Conexión en DB (`prisma.$connect`)** | Handshake directo al iniciar el servidor para comprobar el estado de salud de PostgreSQL en tiempo real. |
+| 📨 | **Preparación para Microservicios (RabbitMQ / Kafka)** | Event loop asíncrono para emitir eventos de auditoría hacia servicios desacoplados (Spring Boot Audit). |
+| 📦 | **Arquitectura Modular Desacoplada** | Estructuración por capas independientes (`entities`, `mappers`, `dtos`, `schemas`, `services`, `controllers`) que aísla la base de datos de la lógica de negocio. |
+| ⚡ | **Persistencia Híbrida & Prisma 7** | Utilización de Prisma 7 con Driver Adapters basados en `pg` (Node-Postgres) y transacciones optimizadas sobre PostgreSQL. |
 
 ---
 
@@ -54,15 +63,15 @@ books/
 │   └── seed.ts             # Script de población de datos iniciales con relaciones e indexación de roles.
 ├── src/
 │   ├── core/               # Núcleo global de la aplicación.
-│   │   ├── database/
-│   │   │   ├── mongo/      # Conexión a MongoDB utilizando Mongoose.
-│   │   │   └── postgres/   # Cliente de Prisma configurado con pg-driver-adapter.
-│   │   ├── environments/   # Configuración fuertemente tipada de variables de entorno (ENVS).
+│   │   ├── databases/      # Conexiones de infraestructura de base de datos.
+│   │   │   └── postgres/   # Cliente de Prisma configurado con pg-driver-adapter, comprobación de conexión y código generado.
+│   │   │       └── generated/ # Cliente compilado de Prisma v7.
+│   │   ├── environments/   # Configuración fuertemente tipada de variables de entorno (ENVS: PG, Mongo, Redis, RabbitMQ, Kafka).
 │   │   ├── errors/         # Clase central AppError para el manejo de excepciones operacionales.
-│   │   ├── middlewares/    # Middlewares globales (ErrorHandler, restrictTo de seguridad unificada, Zod Validation).
+│   │   ├── middlewares/    # Middlewares globales (ErrorHandler, restrictTo de seguridad unificada, optionalAuth, Zod Validation).
 │   │   ├── router/         # Enrutador centralizado (Prefijado con /api/v1).
-│   │   ├── types/          # Tipos transversales de TypeScript (ej. Paginación y extensión de Express.Request).
-│   │   └── utils/          # Utilidades globales (Sanitizadores XSS, removeUndefined).
+│   │   ├── types/          # Tipos transversales de TypeScript (ej. Paginación y extensión global de Express.Request).
+│   │   └── utils/          # Utilidades globales (Sanitizadores XSS, removeDataUndefined).
 │   ├── modules/            # Módulos aislados de negocio.
 │   │   ├── auth/           # Módulo de Autenticación.
 │   │   │   ├── controllers/# Controladores de autenticación (Login, Registro y Refresh Token).
@@ -71,28 +80,28 @@ books/
 │   │   │   ├── schemas/    # Esquemas Zod para la verificación y coincidencia de password.
 │   │   │   └── services/   # Lógica de firmado de JWTs y validación de vigencia del Refresh Token.
 │   │   ├── books/          # Módulo de Libros.
-│   │   │   ├── controllers/# Controladores HTTP del recurso libros que inyectan el usuario solicitante.
+│   │   │   ├── controllers/# Controladores HTTP del recurso libros (CRUD + /my-books) con inyección de usuario.
 │   │   │   ├── dtos/       # Data Transfer Objects (Request/Response).
 │   │   │   ├── mappers/    # Traductores de Modelos de DB a DTOs formateados.
-│   │   │   ├── routes/     # Rutas REST de libros protegidas con control de roles.
+│   │   │   ├── routes/     # Rutas REST de libros protegidas con control de roles (RBAC).
 │   │   │   ├── schemas/    # Esquemas Zod para validación de entrada.
 │   │   │   └── services/   # Lógica de libros con verificación estricta de propiedad/propietario.
 │   │   ├── dashboard/      # Módulo de Dashboard.
-│   │   │   ├── controllers/# Controladores para la exposición de estadísticas consolidadas.
-│   │   │   ├── dtos/       # DTOs de salida y tipado del dashboard (DashboardStatsResponseDTO).
+│   │   │   ├── controllers/# Controladores para la exposición de estadísticas consolidadas e historial.
+│   │   │   ├── dtos/       # DTOs de salida y tipado del dashboard (DashboardStatsResponseDTO, DashboardHistoryResponseDTO).
 │   │   │   ├── routes/     # Rutas REST del dashboard protegidas por control de acceso ADMIN.
-│   │   │   └── services/   # Lógica de agregación paralela y consulta de contadores sobre la base de datos.
+│   │   │   └── services/   # Lógica de agregación paralela y consulta de contadores sobre PostgreSQL.
 │   │   └── users/          # Módulo de Usuarios.
-│   │       ├── controllers/# Controladores HTTP de usuarios y listas lookup.
-│   │       ├── dtos/       # DTOs de petición y respuesta (Omiten la contraseña).
-│   │       ├── mappers/    # Mapeadores de usuarios con formateo de fechas dd/MM/yyyy.
-│   │       ├── routes/     # Rutas REST de usuarios.
+│   │       ├── controllers/# Controladores HTTP de usuarios, me, profile, lookup y check-email.
+│   │       ├── dtos/       # DTOs de petición y respuesta (Omiten la contraseña y datos sensibles).
+│   │       ├── mappers/    # Mapeadores de usuarios con formateo de fechas ISO 8601.
+│   │       ├── routes/     # Rutas REST de usuarios protegidas por Zod y restrictTo.
 │   │       ├── schemas/    # Esquemas Zod para la creación y edición parcial (strict) sin defaults problemáticos.
-│   │       └── services/   # Lógica del CRUD, filtrado selectivo de ADMINs a usuarios comunes y encriptación.
-│   └── index.ts            # Punto de entrada de la aplicación Express.
-├── docker-compose.yml      # Orquestación local de PostgreSQL 15 y MongoDB.
+│   │       └── services/   # Lógica del CRUD, filtrado selectivo de ADMINs a usuarios comunes y encriptación bcrypt.
+│   └── index.ts            # Punto de entrada de la aplicación Express y carga de seguridad global.
+├── docker-compose.yml      # Orquestación multi-contenedor: PostgreSQL 15, MongoDB, Redis 7, RabbitMQ y Kafka.
 ├── package.json            # Scripts del sistema y dependencias declaradas.
-└── tsconfig.json           # Configuración del compilador de TypeScript.
+└── tsconfig.json           # Configuración del compilador de TypeScript con alias de directorios.
 ```
 
 ---
@@ -100,13 +109,13 @@ books/
 ## 🚀 Flujo de Ejecución Arquitectónico
 
 ```
-[ Cliente / Postman ]
+[ Cliente / Frontend / Angular / React ]
        │
-       ▼ (Petición HTTP con Cabecera Authorization)
+       ▼ (Petición HTTP con Cabecera Authorization: Bearer <JWT>)
 ┌────────────────────────────────────────────────────────┐
 │               Middlewares Globales (src/index.ts)      │
-│  - Helmet, CORS, Rate-Limit, JSON size validation      │
-│  - Control de flujo y bloqueo de IPs maliciosas        │
+│  - Helmet, CORS, Rate-Limit, JSON body limit           │
+│  - Control de flujo y protección contra inyecciones    │
 └──────────────────────┬─────────────────────────────────┘
                        │ (Paso de validación)
                        ▼
@@ -119,8 +128,9 @@ books/
 ┌────────────────────────────────────────────────────────┐
 │             Middleware Unificado restrictTo            │
 │  - Valida el Access Token firmado (JWT_ACCESS_SECRET)   │
+│  - Verifica en PostgreSQL que el usuario esté activo   │
 │  - Inyecta el usuario desencriptado en req.user        │
-│  - Bloquea accesos no permitidos según los roles       │
+│  - Bloquea accesos no permitidos según el rol (RBAC)   │
 └──────────────────────┬─────────────────────────────────┘
                        │
                        ▼
@@ -140,18 +150,22 @@ books/
 ┌────────────────────────────────────────────────────────┐
 │      Servicios del Módulo (src/modules/*/services)     │
 │  - Aplica reglas de negocio (ej: ¿Es dueño o Admin?)   │
-│  - Consulta a PostgreSQL usando Prisma Client           │
+│  - Consulta a PostgreSQL usando Prisma Client v7       │
+│  - (Opcional) Publica AuditEvent a RabbitMQ / Kafka     │
 └──────────────────────┬─────────────────────────────────┘
-                       │ (Modelo de Persistencia)
-                       ▼
-┌────────────────────────────────────────────────────────┐
-│        Mapeadores de DTO (src/modules/*/mappers)       │
-│  - Omiten contraseñas y datos sensibles                │
-│  - Formatean fechas locales (dd/MM/yyyy)               │
-└──────────────────────┬─────────────────────────────────┘
-                       │ (DTO de Respuesta)
-                       ▼
-                 [ 200 OK JSON ]
+                       │                           │
+                       ▼                           ▼ (Asíncrono)
+┌──────────────────────────────┐        ┌─────────────────────────────┐
+│ Mapeadores de DTO (mappers)  │        │ Message Broker (RabbitMQ)   │
+│ - Omite contraseñas         │        │ - Publica evento de cambio  │
+│ - Formatea datos de salida   │        └──────────────┬──────────────┘
+└──────────────┬───────────────┘                       │
+               │                                       ▼
+               ▼ (200 OK JSON)           ┌─────────────────────────────┐
+        [ Respuesta HTTP ]               │ Spring Boot Audit Service   │
+                                         │ - Consume log y guarda en   │
+                                         │   MongoDB / ElasticSearch   │
+                                         └─────────────────────────────┘
 ```
 
 ---
@@ -161,10 +175,11 @@ books/
 El proyecto utiliza **Prisma 7**, cuya configuración y flujo de desarrollo requiere:
 * **Prisma Config Central (`prisma.config.ts`):** Las URIs de base de datos se leen directamente mediante TypeScript, previniendo el acoplamiento duro en `schema.prisma`.
 * **Driver Adapters Obligatorios:** Conexiones gestionadas a través del controlador `pg` (Node-Postgres) inyectado al constructor de `PrismaClient` para un rendimiento asíncrono y estable.
+* **Health Check Integrado:** Al iniciar la aplicación, se invoca `prisma.$connect()` para verificar la disponibilidad inmediata de PostgreSQL.
 
 ### Ciclo de Desarrollo
 
-1. **Iniciar contenedores de desarrollo (PostgreSQL y MongoDB):**
+1. **Iniciar contenedores de desarrollo (PostgreSQL, MongoDB, Redis, RabbitMQ, Kafka):**
    ```bash
    docker compose up -d
    ```
@@ -194,25 +209,24 @@ El proyecto utiliza **Prisma 7**, cuya configuración y flujo de desarrollo requ
 ## 🛠️ Pila Tecnológica y Dependencias
 
 ### Dependencias de Producción
-| Icono | Tecnología / Librería | Versión | Propósito en el Proyecto |
+| Icono | Tecnología / Librería | Versión Estricta | Propósito en el Proyecto |
 | :---: | :--- | :--- | :--- |
 | 🚂 | **express** | `^5.2.1` | Servidor HTTP de última generación. |
 | 🛡️ | **bcrypt** | `^6.0.0` | Algoritmo de hashing criptográfico para contraseñas. |
 | 🔑 | **jsonwebtoken** | `^9.0.3` | Generación y validación de tokens de acceso y refresco (JWT). |
 | 📅 | **date-fns** | `^4.4.0` | Manipulación y formateo de fechas. |
-| 🛡️ | **helmet** | `^8.3.0` | Middleware para establecer cabeceras de seguridad. |
-| 🌐 | **cors** | `^2.8.6` | Control de acceso HTTP y políticas de origen. |
-| ⏱️ | **express-rate-limit** | `^8.5.2` | Limitador de peticiones por IP contra fuerza bruta. |
-| 🍃 | **mongoose** | `^9.7.4` | ODM para la gestión de logs en MongoDB. |
+| 🛡️ | **helmet** | `^8.3.0` | Middleware para establecer cabeceras de seguridad HTTP. |
+| 🌐 | **cors** | `^2.8.6` | Control de acceso HTTP y políticas de origen cruzado. |
+| ⏱️ | **express-rate-limit** | `^8.5.2` | Limitador de peticiones por IP contra ataques de fuerza bruta. |
 | 🐘 | **pg** / **@prisma/adapter-pg** | `^8.22.0` | Adaptadores de conexión para PostgreSQL nativo. |
 | 🛡️ | **zod** / **sanitize-html** | `^4.4.3` | Validación estricta y protección contra inyecciones XSS. |
 | ⚙️ | **dotenv** | `^17.4.2` | Carga de variables de entorno desde archivos `.env`. |
 
 ### Dependencias de Desarrollo
-| Icono | Tecnología / Librería | Versión | Propósito en el Proyecto |
+| Icono | Tecnología / Librería | Versión Estricta | Propósito en el Proyecto |
 | :---: | :--- | :--- | :--- |
 | 🛠️ | **typescript** | `^7.0.2` | Superset de tipado estático para JavaScript. |
-| ⚗️ | **prisma** | `^7.8.0` | Herramienta CLI de Prisma ORM para migraciones. |
+| ⚗️ | **prisma** / **@prisma/client** | `^7.8.0` | Herramienta ORM y CLI de Prisma para migraciones y cliente generado. |
 | ⚡ | **tsx** | `^4.23.1` | Ejecución y recarga en caliente de archivos TypeScript. |
 | 🏷️ | **@types/bcrypt** | `^6.0.0` | Tipado de desarrollo para Bcrypt. |
 | 🔑 | **@types/jsonwebtoken** | `^9.0.10` | Definiciones de tipo para la biblioteca jsonwebtoken. |
@@ -226,37 +240,43 @@ El proyecto utiliza **Prisma 7**, cuya configuración y flujo de desarrollo requ
 * **Node.js** >= 20.0.0
 * **Docker Engine** y **Docker Compose** instalados localmente.
 
+### Matriz de Variables de Entorno (`.env`)
+
+| Variable | Descripción / Valor por Defecto | Requerido |
+| :--- | :--- | :---: |
+| `NODE_ENV` | Entorno de ejecución (`dev` / `prod`) | Sí |
+| `PORT` | Puerto de escucha de la API (`3000`) | Sí |
+| `POSTGRES_URI` | String de conexión PostgreSQL (`postgresql://user:password@localhost:5432/books_db?schema=public`) | Sí |
+| `MONGO_URI` | String de conexión MongoDB (`mongodb://localhost:27017/books_audits`) | Sí |
+| `JWT_ACCESS_SECRET` | Clave secreta para firmar Access Tokens | Sí |
+| `JWT_REFRESH_SECRET` | Clave secreta para firmar Refresh Tokens | Sí |
+| `JWT_EXPIRES_IN` | Tiempo de expiración del Access Token (ej: `3600` o `1h`) | Sí |
+| `JWT_REFRESH_EXPIRES_IN` | Tiempo de expiración del Refresh Token (ej: `7d`) | Sí |
+| `REDIS_HOST` | Host del servidor Redis (`localhost`) | No |
+| `REDIS_PORT` | Puerto de Redis (`6379`) | No |
+| `RABBITMQ_USER` | Usuario por defecto de RabbitMQ (`guest`) | No |
+| `RABBITMQ_PASS` | Contraseña de RabbitMQ (`guest`) | No |
+| `RABBITMQ_URL` | URL del servidor AMQP (`amqp://guest:guest@localhost:5672`) | No |
+| `KAFKA_BROKERS` | Brokers de Apache Kafka (`localhost:9092`) | No |
+
 ### Pasos de Despliegue Local
 
-1. **Instalar árbol de dependencias:**
+1. **Clonar el repositorio e instalar dependencias:**
    ```bash
+   git clone https://github.com/DiegoVilla27/books-api-be.git
+   cd books-api-be
    npm install
    ```
-2. **Configuración de Variables de Entorno:**
-   Cree un archivo `.env` en la raíz del proyecto basándose en las claves obligatorias:
-   ```env
-   NODE_ENV=dev
-   PORT=3000
-   POSTGRES_URI="postgresql://user:password@localhost:5432/books_db?schema=public"
-   MONGO_URI="mongodb://localhost:27017/books_audits"
-   JWT_ACCESS_SECRET="tu_secreto_super_seguro_access"
-   JWT_REFRESH_SECRET="tu_secreto_super_seguro_refresh"
-   JWT_EXPIRES_IN=120
-   JWT_REFRESH_EXPIRES_IN=7d
-   ```
-3. **Iniciar servicios de infraestructura:**
+2. **Configurar Variables de Entorno:**
+   Cree un archivo `.env` en la raíz del proyecto utilizando el formato descrito arriba.
+3. **Iniciar servicios de infraestructura (PostgreSQL, Mongo, Redis, RabbitMQ, Kafka):**
    ```bash
    docker compose up -d
    ```
-4. **Ejecutar migraciones y seeding inicial y resetear:**
+4. **Ejecutar migraciones SQL e inserción de datos (Seeding):**
    ```bash
    npx prisma migrate dev --name init
-   ```
-   ```bash
    npx prisma db seed
-   ```
-   ```bash
-   npx prisma migrate reset
    ```
 5. **Iniciar el servidor en modo desarrollo (Watch mode):**
    ```bash
@@ -269,15 +289,23 @@ El proyecto utiliza **Prisma 7**, cuya configuración y flujo de desarrollo requ
 
 ---
 
-## 🤝 Contribuciones
+## 📈 Resiliencia Arquitectónica y Rendimiento
 
-1. Crea un Fork del repositorio.
-2. Crea tu rama con la característica deseada: `git checkout -b feature/nueva-caracteristica`.
-3. Sube tus cambios al repositorio remoto: `git commit -am "Add feature"` & `git push origin feature/nueva-caracteristica`.
-4. Abre un Pull Request estándar hacia la rama `main`.
+- **Verificación activa de conexión (Health Check):** Al iniciar la aplicación, Prisma realiza un `prisma.$connect()` explícito que informa inmediatamente el estado de PostgreSQL en consola.
+- **Fail-Safe Exception Boundaries:** El middleware centralizado `AppError` captura todas las excepciones no controladas en las rutas asíncronas, evitando que la aplicación sufra caídas insólitas.
+- **Preparación para Event-Driven Architecture:** La inclusión de contenedores RabbitMQ y Kafka permite enviar eventos de cambios de estado a microservicios desacoplados (como Spring Boot Auditoría) sin restar rendimiento a la API principal.
 
 ---
 
-> This digital ecosystem has been designed, structured, and developed to high-performance standards by **Cabuweb**.
+## 🤝 Contribuciones y Licencia
 
-[Cabuweb](https://cabuweb.com)
+1. Crea un Fork del repositorio.
+2. Crea tu rama con la característica deseada: `git checkout -b feature/nueva-caracteristica`.
+3. Sube tus cambios al repositorio remoto: `git commit -am "feat: agregar nueva caracteristica"` & `git push origin feature/nueva-caracteristica`.
+4. Abre un Pull Request estándar hacia la rama `main`.
+
+Este proyecto se distribuye bajo la licencia **ISC**.
+
+---
+
+> This digital ecosystem has been designed, structured, and developed to high-performance standards by **[Cabuweb](https://cabuweb.com)**.
