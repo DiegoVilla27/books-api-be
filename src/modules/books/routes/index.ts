@@ -1,3 +1,4 @@
+import { cacheRedis } from "@core/middlewares/cacheRedis";
 import { optionalAuth } from "@core/middlewares/optionalAuth";
 import { restrictTo } from "@core/middlewares/restrictTo";
 import validateDataMiddleware from "@core/middlewares/validateDataZod";
@@ -20,26 +21,42 @@ import { Router } from "express";
 const ENTITY_BASE = '/books';
 
 /**
- * Enrutador de Express encargado de exponer los endpoints CRUD del recurso Libros.
- * Aplica validaciones con esquemas de Zod e integra control de acceso basado
- * en roles (RBAC) con el middleware unificado `restrictTo`.
+ * Enrutador de Express encargado de exponer las rutas REST del recurso Libros (`/books`).
+ * Integra middleware de caché con Redis (`cacheRedis`), validación de esquemas Zod (`validateDataMiddleware`),
+ * autenticación opcional (`optionalAuth`) y control de acceso basado en roles (`restrictTo`).
+ *
+ * @remarks
+ * Endpoints expuestos:
+ * - `GET /books` – Listado paginado público de libros (con caché Redis).
+ * - `GET /books/my-books` – Libros del usuario autenticado (con caché Redis).
+ * - `GET /books/:id` – Detalle de un libro por ID (con caché Redis).
+ * - `POST /books` – Registra un nuevo libro.
+ * - `PATCH /books/:id` – Actualización parcial de un libro.
+ * - `DELETE /books/:id` – Eliminación de un libro.
+ *
+ * @see {@link cacheRedis}
+ * @see {@link restrictTo}
+ * @see {@link optionalAuth}
  */
-const bookRoutes = Router();
+const bookRoutes: Router = Router();
 
 // Endpoint para el listado paginado de libros
 bookRoutes.get(ENTITY_BASE, [
   optionalAuth,
+  cacheRedis(),
   validateDataMiddleware(GetBooksQuerySchema)
 ], getBooksCtrl);
 
 bookRoutes.get(`${ENTITY_BASE}/my-books`, [
   restrictTo('USER', 'ADMIN'),
+  cacheRedis(),
   validateDataMiddleware(GetBooksQuerySchema)
 ], getMyBooksCtrl);
 
 // Endpoint para obtener el detalle de un libro por ID
 bookRoutes.get(`${ENTITY_BASE}/:id`, [
   optionalAuth,
+  cacheRedis(),
   validateDataMiddleware(BookByIdSchema)
 ], getBookByIdCtrl);
 

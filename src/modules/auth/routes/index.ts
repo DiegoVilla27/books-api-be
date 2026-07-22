@@ -18,7 +18,7 @@ import { LoginSchema, RefreshTokenSchema, RegisterSchema } from "../schemas";
  * @see {@link registerCtrl}
  * @see {@link refreshTokenCtrl}
  */
-const authRoutes = Router();
+const authRoutes: Router = Router();
 
 // Endpoint para autenticar un usuario con sus credenciales
 authRoutes.post('/login', validateDataMiddleware(LoginSchema), loginCtrl);

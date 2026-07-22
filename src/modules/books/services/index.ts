@@ -8,6 +8,7 @@ import type { CreateBookRequestDTO, UpdateBookRequestDTO } from "../dtos/request
 import type { BookResponseDTO } from "../dtos/response";
 import type { BooksPaginationQuery } from "../entities";
 import { toBookResponseDTO, toBookResponseDTOs } from "../mappers";
+import { clearCache, KEYS_REDIS } from "@core/databases/redis/config";
 
 /**
  * Servicio para obtener una lista paginada de libros.
@@ -187,6 +188,8 @@ const createBookSvc = async (
     }
   });
 
+  await clearCache(KEYS_REDIS.BOOKS);
+
   return toBookResponseDTO(bookCreated);
 }
 
@@ -258,6 +261,8 @@ const updateBookSvc = async (
     }
   });
 
+  await clearCache(KEYS_REDIS.BOOKS);
+
   return toBookResponseDTO(bookUpdated);
 }
 
@@ -310,9 +315,26 @@ const deleteBookSvc = async (
     }
   });
 
+  await clearCache(KEYS_REDIS.BOOKS);
+
   return toBookResponseDTO(bookDeleted);
 }
 
+/**
+ * Servicio para obtener la lista paginada de libros pertenecientes al usuario autenticado.
+ * Filtra automáticamente la consulta utilizando el `id` del usuario contenido en el token de sesión.
+ * 
+ * @param filters - Filtros de paginación y búsqueda ({@link BooksPaginationQuery}).
+ * @param userAuth - Datos del usuario autenticado extraídos del middleware de sesión.
+ * @returns Promesa que resuelve a un objeto paginado conteniendo los `BookResponseDTO` del usuario.
+ * 
+ * @throws {AppError} Retorna `401 Unauthorized` si no existe la información del usuario autenticado.
+ * 
+ * @example
+ * ```typescript
+ * const myBooks = await myBooksSvc({ page: 1, limit: 10 }, { id: 1, role: 'USER' });
+ * ```
+ */
 const myBooksSvc = (
   filters: BooksPaginationQuery,
   userAuth?: Pick<UserResponseDTO, "id" | "role">

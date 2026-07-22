@@ -5,11 +5,11 @@ import userRoutes from "@modules/users/routes";
 import { Router } from "express";
 
 /**
- * Secondary Express Router that aggregates and mounts all module-specific sub-routers.
+ * Enrutador secundario de Express que agrupa y monta todos los enrutadores de los módulos de dominio.
  * 
  * @remarks
- * Bundles separate domain modules like authentication, books, admin dashboard, and users 
- * into a single unified routing tree before applying version prefixing.
+ * Centraliza los módulos de Autenticación, Libros, Dashboard y Usuarios en un único árbol de rutas
+ * previo a la aplicación del prefijo de versión de API.
  * 
  * @internal
  */
@@ -22,12 +22,16 @@ router.use(bookRoutes);
 router.use(userRoutes);
 
 /**
- * Main application routing gateway.
+ * Enrutador principal de la aplicación que expone la puerta de entrada de la API.
  * 
  * @remarks
- * Prefixes all aggregated module endpoints under the `/api/v1` namespace.
- * Serves as the primary entry point for all API network requests routing through the Express application.
+ * Aplica el prefijo de espacio de nombres `/api/v1` a todos los endpoints de los módulos del sistema.
+ * 
+ * @example
+ * ```typescript
+ * app.use(mainRouter);
+ * ```
  */
-const mainRouter = Router().use('/api/v1', router);
+const mainRouter: Router = Router().use('/api/v1', router);
 
 export default mainRouter;

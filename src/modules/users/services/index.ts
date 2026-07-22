@@ -7,6 +7,7 @@ import type { CreateUserRequestDTO, ProfileUserRequestDTO, UpdateUserRequestDTO 
 import type { MeResponseDTO, UserResponseDTO } from "../dtos/response";
 import type { RoleUser, UsersPaginationQuery } from "../entities";
 import { toUserResponseDTO, toUserResponseDTOs } from "../mappers";
+import { clearCache, KEYS_REDIS } from "@core/databases/redis/config";
 
 /**
  * Servicio para actualizar la información de perfil del usuario actualmente autenticado.
@@ -16,6 +17,9 @@ import { toUserResponseDTO, toUserResponseDTOs } from "../mappers";
  * @returns Promesa que resuelve al {@link UserResponseDTO} del usuario actualizado.
  * 
  * @throws {AppError} Retorna `401 Unauthorized` si no se proporciona `userId` o si el usuario no existe/está inactivo.
+ * 
+ * @remarks
+ * Invalida automáticamente las claves en caché de Redis vinculadas al módulo de usuarios mediante {@link clearCache}.
  * 
  * @example
  * ```typescript
@@ -41,6 +45,8 @@ const profileSvc = async (
     data: removeDataUndefined(payload),
     include: { _count: { select: { books: true } } }
   });
+
+  await clearCache(KEYS_REDIS.USERS);
 
   return toUserResponseDTO(updatedUser);
 }
@@ -266,6 +272,8 @@ const createUserSvc = async (user: CreateUserRequestDTO): Promise<UserResponseDT
     include: { _count: { select: { books: true } } }
   });
 
+  await clearCache(KEYS_REDIS.USERS);
+
   return toUserResponseDTO(userCreated);
 }
 
@@ -300,6 +308,8 @@ const updateUserSvc = async (id: number, user: UpdateUserRequestDTO): Promise<Us
     include: { _count: { select: { books: true } } }
   });
 
+  await clearCache(KEYS_REDIS.USERS);
+
   return toUserResponseDTO(userUpdated);
 }
 
@@ -330,6 +340,8 @@ const deleteUserSvc = async (id: number): Promise<UserResponseDTO> => {
     data: { isActive: false },
     include: { _count: { select: { books: true } } }
   });
+
+  await clearCache(KEYS_REDIS.USERS);
 
   return toUserResponseDTO(userDeleted);
 }

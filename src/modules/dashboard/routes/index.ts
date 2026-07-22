@@ -5,20 +5,20 @@ import validateDataMiddleware from "@core/middlewares/validateDataZod";
 import { DashboardHistorySchema } from "../schemas";
 
 /**
- * Base URI path segment for the dashboard module endpoints.
+ * Prefijo de ruta base para los endpoints del módulo Dashboard.
  */
 const ENTITY_BASE = '/dashboard';
 
 /**
- * Express router instance managing all routes associated with the dashboard metrics.
+ * Enrutador de Express encargado de exponer los endpoints de estadísticas y métricas del Dashboard.
  * 
  * @remarks
- * This router secures all downstream routes using role-based access control (RBAC).
- * Specifically, endpoints are restricted to users with the 'ADMIN' role.
+ * Restringe el acceso de todos sus endpoints exclusivamente a usuarios con rol `ADMIN` mediante el middleware `restrictTo`.
  * 
+ * @see {@link restrictTo}
  * @internal
  */
-const dashboardRoutes = Router();
+const dashboardRoutes: Router = Router();
 
 /**
  * GET /api/v1/dashboard/stats
