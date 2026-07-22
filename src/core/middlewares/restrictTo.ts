@@ -2,6 +2,8 @@ import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import AppError from '@core/errors';
 import ENVS from '@core/environments';
+import prisma from '@core/database/postgres';
+import type { RoleUser } from '@modules/users/entities';
 
 const JWT_ACCESS_SECRET = ENVS.JWT_ACCESS_SECRET;
 
@@ -20,18 +22,26 @@ const JWT_ACCESS_SECRET = ENVS.JWT_ACCESS_SECRET;
  * para que los controladores posteriores puedan consumirlos sin volver a decodificar el token.
  *
  * @param roles - Lista de roles autorizados para acceder a la ruta protegida (ej: `'ADMIN'`, `'USER'`).
- * @returns Middleware de Express que autentica y autoriza la petición.
+ * @returns Middleware asíncrono de Express que autentica y autoriza la petición entrante.
+ *
+ * @throws {AppError} Retorna `401 Unauthorized` si el token está ausente, malformado, firmado con clave inválida, expirado o si el usuario no existe/está inactivo.
+ * @throws {AppError} Retorna `403 Forbidden` si el rol decodificado no se encuentra entre los roles autorizados.
+ *
+ * @remarks
+ * Este middleware realiza una consulta a la base de datos PostgreSQL vía Prisma para validar
+ * la propiedad `isActive` del usuario en tiempo real, garantizando que cuentas inhabilitadas pierdan acceso de inmediato.
  *
  * @example
+ * ```typescript
  * // Solo administradores
  * router.delete('/users/:id', restrictTo('ADMIN'), deleteUserCtrl);
  *
- * @example
  * // Cualquier usuario autenticado
  * router.get('/books', restrictTo('USER', 'ADMIN'), getBooksCtrl);
+ * ```
  */
 export const restrictTo = (...roles: string[]) => {
-  return (req: Request, _: Response, next: NextFunction): void => {
+  return async (req: Request, _: Response, next: NextFunction): Promise<void> => {
     const authHeader = req.headers.authorization;
 
     // 1. AUTENTICACIÓN: Verificar presencia del Token
@@ -40,6 +50,7 @@ export const restrictTo = (...roles: string[]) => {
     }
 
     const token = authHeader.split(' ')[1];
+
     if (!token) {
       return next(new AppError('Acceso denegado. Token malformado.', 401));
     }
@@ -48,11 +59,21 @@ export const restrictTo = (...roles: string[]) => {
       // 2. AUTENTICACIÓN: Validar firma del Token
       const decoded = jwt.verify(token, JWT_ACCESS_SECRET) as unknown as {
         sub: number;
-        name: string;
-        lastname: string;
-        email: string;
-        role: string;
+        role: RoleUser;
       };
+
+      // Verificamos en BD que el usuario siga existiendo y esté activo
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.sub },
+        select: { isActive: true },
+      });
+
+      // Si fue eliminado o su cuenta fue desactivada mientras tenía sesión iniciada
+      if (!user || !user.isActive) {
+        return next(
+          new AppError('Tu cuenta se encuentra inactiva o deshabilitada. Contacta al administrador.', 401)
+        );
+      }
 
       // 3. AUTORIZACIÓN: Validar Rol
       if (!roles.includes(decoded.role)) {
@@ -62,9 +83,6 @@ export const restrictTo = (...roles: string[]) => {
       // Inyectar usuario en el request para que los controladores lo usen
       req.user = {
         id: decoded.sub,
-        name: decoded.name,
-        lastname: decoded.lastname,
-        email: decoded.email,
         role: decoded.role
       };
 

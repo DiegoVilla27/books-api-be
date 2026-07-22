@@ -1,7 +1,6 @@
-import { restrictTo } from "@core/middlewares/restrictTo";
 import validateDataMiddleware from "@core/middlewares/validateDataZod";
 import { Router } from "express";
-import { getMeCtrl, loginCtrl, refreshTokenCtrl, registerCtrl } from "../controllers";
+import { loginCtrl, refreshTokenCtrl, registerCtrl } from "../controllers";
 import { LoginSchema, RefreshTokenSchema, RegisterSchema } from "../schemas";
 
 /**
@@ -10,16 +9,16 @@ import { LoginSchema, RefreshTokenSchema, RegisterSchema } from "../schemas";
  * Aplica middlewares de validación Zod en cada endpoint para garantizar la integridad de los datos.
  *
  * @remarks
- * Las rutas disponibles son:
- * - `GET /me` – Obtiene el usuario actual autenticado.
- * - `POST /login`   – Autentica un usuario con email y contraseña.
- * - `POST /register` – Registra un nuevo usuario en el sistema.
- * - `POST /refresh`  – Renueva el par de tokens JWT a partir de un refresh token válido.
+ * Endpoints disponibles:
+ * - `POST /login` - Autentica un usuario mediante sus credenciales (email/password).
+ * - `POST /register` - Registra un nuevo usuario en el sistema y emite sus tokens iniciales.
+ * - `POST /refresh` - Renueva el par de tokens JWT a partir de un refresh token válido.
+ *
+ * @see {@link loginCtrl}
+ * @see {@link registerCtrl}
+ * @see {@link refreshTokenCtrl}
  */
 const authRoutes = Router();
-
-// Endpoint para obtener el usuario actual autenticado.
-authRoutes.get('/me', restrictTo('USER', 'ADMIN'), getMeCtrl);
 
 // Endpoint para autenticar un usuario con sus credenciales
 authRoutes.post('/login', validateDataMiddleware(LoginSchema), loginCtrl);

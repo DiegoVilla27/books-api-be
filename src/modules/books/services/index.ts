@@ -2,23 +2,33 @@ import prisma from "@core/database/postgres";
 import AppError from "@core/errors";
 import type { IPagination } from "@core/types/pagination";
 import { removeDataUndefined } from "@core/utils/removeDataUndefined";
+import type { RoleUser } from "@modules/users/entities";
 import type { CreateBookRequestDTO, UpdateBookRequestDTO } from "../dtos/request";
 import type { BookResponseDTO } from "../dtos/response";
-import { toBookResponseDTO, toBookResponseDTOs } from "../mappers";
 import type { BooksPaginationQuery } from "../entities";
+import { toBookResponseDTO, toBookResponseDTOs } from "../mappers";
+import type { UserResponseDTO } from "@modules/users/dtos/response";
 
 /**
  * Servicio para obtener una lista paginada de libros.
  * Realiza una consulta paralela mediante una transacción de Prisma para obtener los registros y el conteo total.
  * Incluye la información básica del usuario propietario de cada libro.
  * 
- * @param page - Número de la página a consultar.
- * @param limit - Límite de registros por página.
+ * @param filters - Filtros de paginación y búsqueda ({@link BooksPaginationQuery}).
+ * @param userRole - Rol del usuario que realiza la consulta (opcional). Si no es `'ADMIN'`, filtra libros creados por usuarios administradores.
  * @returns Promesa que resuelve a un objeto paginado conteniendo un listado de `BookResponseDTO`.
+ * 
+ * @remarks
+ * Los usuarios no administradores no pueden visualizar libros creados por cuentas con rol `'ADMIN'`.
+ * 
+ * @example
+ * ```typescript
+ * const result = await getAllBooksSvc({ page: 1, limit: 10, search: 'Architecture' }, 'USER');
+ * ```
  */
 const getAllBooksSvc = async (
   filters: BooksPaginationQuery,
-  requestingUser?: { role: string }
+  userRole?: RoleUser
 ): Promise<IPagination<BookResponseDTO>> => {
   const { page, limit, search, userId } = filters;
 
@@ -27,7 +37,7 @@ const getAllBooksSvc = async (
   // Creamos un array vacío de condiciones que Prisma unirá con un AND
   const conditions: any[] = [];
 
-  if (requestingUser?.role !== 'ADMIN') {
+  if (userRole !== 'ADMIN') {
     // Si NO es admin, excluimos cualquier libro que pertenezca a un usuario con rol ADMIN
     conditions.push({
       user: {
@@ -96,9 +106,17 @@ const getAllBooksSvc = async (
  * Carga los datos asociados del usuario propietario.
  * 
  * @param id - Identificador único del libro.
- * @returns Promesa que resuelve al `BookResponseDTO` si el libro es encontrado, o `null` si no existe.
+ * @param userRole - Rol del usuario autenticado que realiza la solicitud.
+ * @returns Promesa que resuelve al `BookResponseDTO` con los datos del libro.
+ * 
+ * @throws {AppError} Retorna `404 Not Found` si el libro no existe o si pertenece a un ADMIN y el solicitante no es ADMIN.
+ * 
+ * @example
+ * ```typescript
+ * const book = await getBookByIdSvc(15, 'ADMIN');
+ * ```
  */
-const getBookByIdSvc = async (id: number, requestingUser?: { role: string }): Promise<BookResponseDTO> => {
+const getBookByIdSvc = async (id: number, userRole?: RoleUser): Promise<BookResponseDTO> => {
   const bookFind = await prisma.book.findUnique({
     where: { id },
     include: {
@@ -119,7 +137,7 @@ const getBookByIdSvc = async (id: number, requestingUser?: { role: string }): Pr
 
   // Regla de visibilidad: Si quien consulta NO es ADMIN y el libro pertenece a un ADMIN -> 404
   const isOwnerAdmin = bookFind.user.role === 'ADMIN';
-  const isRequestingUserAdmin = requestingUser?.role === 'ADMIN';
+  const isRequestingUserAdmin = userRole === 'ADMIN';
 
   if (!isRequestingUserAdmin && isOwnerAdmin) {
     throw new AppError("Libro no encontrado", 404);
@@ -130,10 +148,19 @@ const getBookByIdSvc = async (id: number, requestingUser?: { role: string }): Pr
 
 /**
  * Servicio para registrar un nuevo libro en la base de datos.
- * Vincula el libro obligatoriamente al usuario especificado por su id.
+ * Vincula el libro obligatoriamente al usuario especificado por su `userId`.
  * 
- * @param book - DTO con la información requerida para crear el libro.
+ * @param book - DTO con la información requerida para crear el libro ({@link CreateBookRequestDTO}).
  * @returns Promesa que resuelve al `BookResponseDTO` del libro creado.
+ * 
+ * @example
+ * ```typescript
+ * const newBook = await createBookSvc({
+ *   title: 'Design Patterns',
+ *   author: 'Erich Gamma',
+ *   userId: 1
+ * });
+ * ```
  */
 const createBookSvc = async (book: CreateBookRequestDTO): Promise<BookResponseDTO> => {
   const bookCreated = await prisma.book.create({
@@ -159,16 +186,28 @@ const createBookSvc = async (book: CreateBookRequestDTO): Promise<BookResponseDT
  * 
  * @param id - Identificador único del libro a modificar.
  * @param book - DTO con los campos que se desean actualizar de manera opcional.
- * @param requestingUser - Datos del usuario que realiza la petición (para comprobar autorizaciones).
+ * @param userAuth - Datos del usuario que realiza la petición (para comprobar autorizaciones).
  * @returns Promesa que devuelve el `BookResponseDTO` del libro actualizado.
- * @throws AppError - 404 si el libro no existe.
- * @throws AppError - 403 si el usuario no es el propietario ni un administrador.
+ * 
+ * @throws {AppError} Retorna `401 Unauthorized` si no hay usuario autenticado.
+ * @throws {AppError} Retorna `404 Not Found` si el libro no existe.
+ * @throws {AppError} Retorna `403 Forbidden` si el usuario no es el propietario ni un administrador.
+ * 
+ * @example
+ * ```typescript
+ * const updated = await updateBookSvc(5, { title: 'Refactoring 2nd Ed' }, { id: 1, role: 'USER' });
+ * ```
  */
 const updateBookSvc = async (
   id: number,
   book: UpdateBookRequestDTO,
-  requestingUser: { id: number, email: string, role: string }
+  userAuth?: Pick<UserResponseDTO, "id" | "role">
 ): Promise<BookResponseDTO> => {
+
+  if (!userAuth) {
+    throw new AppError("No se pudo obtener la información del usuario", 401);
+  }
+
   const existingBook = await prisma.book.findUnique({ where: { id } });
 
   if (!existingBook) {
@@ -176,8 +215,8 @@ const updateBookSvc = async (
   }
 
   // Control de Acceso: Debe ser el dueño del libro O ser un ADMIN
-  const isOwner = existingBook.userId === requestingUser.id;
-  const isAdmin = requestingUser.role === 'ADMIN';
+  const isOwner = existingBook.userId === userAuth.id;
+  const isAdmin = userAuth.role === 'ADMIN';
 
   if (!isOwner && !isAdmin) {
     throw new AppError("No tienes permisos para modificar este libro", 403);
@@ -216,15 +255,26 @@ const updateBookSvc = async (
  * Valida que el libro exista, y que el usuario solicitante sea el propietario o administrador.
  * 
  * @param id - Identificador único del libro a eliminar.
- * @param requestingUser - Datos del usuario que realiza la petición (para comprobar autorizaciones).
+ * @param userAuth - Datos del usuario que realiza la petición (para comprobar autorizaciones).
  * @returns Promesa que resuelve a la representación del libro eliminado en formato `BookResponseDTO`.
- * @throws AppError - 404 si el libro no existe.
- * @throws AppError - 403 si el usuario no es el propietario ni un administrador.
+ * 
+ * @throws {AppError} Retorna `401 Unauthorized` si no hay usuario autenticado.
+ * @throws {AppError} Retorna `404 Not Found` si el libro no existe.
+ * @throws {AppError} Retorna `403 Forbidden` si el usuario no es el propietario ni un administrador.
+ * 
+ * @example
+ * ```typescript
+ * const deleted = await deleteBookSvc(5, { id: 1, role: 'ADMIN' });
+ * ```
  */
 const deleteBookSvc = async (
   id: number,
-  requestingUser: { id: number, email: string, role: string }
+  userAuth?: Pick<UserResponseDTO, "id" | "role">
 ): Promise<BookResponseDTO> => {
+
+  if (!userAuth) {
+    throw new AppError("No se pudo obtener la información del usuario", 401);
+  }
 
   const existingBook = await prisma.book.findUnique({ where: { id } });
 
@@ -232,7 +282,7 @@ const deleteBookSvc = async (
     throw new AppError("Libro no encontrado", 404);
   }
 
-  if (existingBook.userId !== requestingUser.id && requestingUser.role !== 'ADMIN') {
+  if (existingBook.userId !== userAuth.id && userAuth.role !== 'ADMIN') {
     throw new AppError("No tienes permisos para eliminar este libro", 403);
   }
 

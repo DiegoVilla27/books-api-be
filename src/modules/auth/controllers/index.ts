@@ -1,35 +1,22 @@
 import type { NextFunction, Request, Response } from "express";
-import { getMetSvc, loginSvc, refreshTokenSvc, registerSvc } from "../services";
-
-/**
- * Controller responsible for retrieving the current authenticated user's profile identity.
- * Serves as the main validation endpoint during application bootstrap lifecycles.
- * 
- * @remarks
- * This handler expects the upstream authentication middleware (`restrictTo`) to have already 
- * successfully verified the incoming JWT and injected the credentials into `req.user`.
- *
- * @param req - Express Request object containing the parsed context metadata inside `req.user`.
- * @param res - Express Response object returning the authenticated user's profile properties.
- * @param next - Express Next function to forward internal application errors to the global handler layer.
- */
-const getMeCtrl = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const user = await getMetSvc(req.user);
-
-    return res.status(200).json(user);
-  } catch (error) {
-    console.log(`Error al obtener el usuario: ${error}`);
-    return next(error);
-  }
-}
+import { loginSvc, refreshTokenSvc, registerSvc } from "../services";
 
 /**
  * Controlador para autenticar a un usuario existente mediante sus credenciales.
  *
- * @param req - Objeto de petición de Express. Espera `email` y `password` validados en el `body`.
- * @param res - Objeto de respuesta de Express. Devuelve un `AuthResponseDTO` con el par de tokens JWT.
- * @param next - Función de Express para delegar errores al manejador global.
+ * @param req - Objeto de petición de Express. Espera `email` y `password` en `req.body` (validados previamente por `LoginSchema`).
+ * @param res - Objeto de respuesta de Express. Retorna el payload `AuthResponseDTO` con estado HTTP `200 OK`.
+ * @param next - Función de Express para delegar errores inesperados al middleware de errores global.
+ *
+ * @returns Promesa que resuelve enviando la respuesta HTTP JSON con los tokens.
+ *
+ * @throws {AppError} Retorna un error `401 Unauthorized` si las credenciales (email o password) no coinciden o la cuenta está inactiva.
+ *
+ * @example
+ * ```typescript
+ * // Invocado en la ruta POST /api/v1/auth/login
+ * authRoutes.post('/login', validateDataMiddleware(LoginSchema), loginCtrl);
+ * ```
  */
 const loginCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -46,9 +33,19 @@ const loginCtrl = async (req: Request, res: Response, next: NextFunction) => {
  * Controlador para registrar un nuevo usuario en el sistema.
  * Crea la cuenta, encripta la contraseña y devuelve un par de tokens JWT listos para usar.
  *
- * @param req - Objeto de petición de Express. Espera los campos del `RegisterRequestDTO` validados en el `body`.
- * @param res - Objeto de respuesta de Express. Devuelve un `AuthResponseDTO` con el par de tokens JWT.
- * @param next - Función de Express para delegar errores al manejador global.
+ * @param req - Objeto de petición de Express. Espera los campos del `RegisterRequestDTO` en `req.body` (validados por `RegisterSchema`).
+ * @param res - Objeto de respuesta de Express. Retorna el payload `AuthResponseDTO` con estado HTTP `200 OK`.
+ * @param next - Función de Express para delegar errores inesperados al middleware de errores global.
+ *
+ * @returns Promesa que resuelve enviando la respuesta HTTP JSON con los tokens generados.
+ *
+ * @throws {AppError} Retorna un error `400 Bad Request` si el correo electrónico ya se encuentra registrado en el sistema.
+ *
+ * @example
+ * ```typescript
+ * // Invocado en la ruta POST /api/v1/auth/register
+ * authRoutes.post('/register', validateDataMiddleware(RegisterSchema), registerCtrl);
+ * ```
  */
 const registerCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -66,10 +63,19 @@ const registerCtrl = async (req: Request, res: Response, next: NextFunction) => 
  * Implementa la estrategia de **Refresh Token Rotation**: cada llamada consume el refresh
  * token actual y emite uno nuevo, invalidando el anterior de forma implícita.
  *
- * @param req - Objeto de petición de Express. Espera `refresh_token` en el `body`.
- * @param res - Objeto de respuesta de Express. Devuelve un nuevo `AuthResponseDTO` con tokens frescos.
- * @param next - Función de Express para delegar errores al manejador global.
- * @throws {AppError} Retorna `401` si el refresh token es inválido, expirado o el usuario está inactivo.
+ * @param req - Objeto de petición de Express. Espera `refresh_token` en `req.body` (validado por `RefreshTokenSchema`).
+ * @param res - Objeto de respuesta de Express. Retorna un nuevo `AuthResponseDTO` con estado HTTP `200 OK`.
+ * @param next - Función de Express para delegar errores inesperados al middleware de errores global.
+ *
+ * @returns Promesa que resuelve enviando la respuesta HTTP JSON con el par de tokens renovado.
+ *
+ * @throws {AppError} Retorna `401 Unauthorized` si el refresh token es inválido, expirado o si el usuario asociado ha sido inhabilitado.
+ *
+ * @example
+ * ```typescript
+ * // Invocado en la ruta POST /api/v1/auth/refresh
+ * authRoutes.post('/refresh', validateDataMiddleware(RefreshTokenSchema), refreshTokenCtrl);
+ * ```
  */
 const refreshTokenCtrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -82,4 +88,4 @@ const refreshTokenCtrl = async (req: Request, res: Response, next: NextFunction)
   }
 }
 
-export { getMeCtrl, loginCtrl, refreshTokenCtrl, registerCtrl };
+export { loginCtrl, refreshTokenCtrl, registerCtrl };

@@ -3,50 +3,27 @@ import ENVS from "@core/environments";
 import AppError from "@core/errors";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import type { LoginRequestDTO, MeRequestDTO, RefreshTokenRequestDTO, RegisterRequestDTO } from "../dtos/request";
-import type { AuthResponseDTO, MeResponseDTO } from "../dtos/response";
-
-/**
- * Resolves full entity identity verification bounds against active state definitions in the database.
- * Validates active record integrity keys passed downstream by core auth middlewares.
- * 
- * @remarks
- * This business logic layer performs a transactional fetch operation through the Prisma engine layers, 
- * evaluating structural parameters such as account suspension metrics (`isActive`) before serializing
- * sanitized domain payloads over the transport network.
- *
- * @param payload - Struct containing verified core identity request properties injected from active tokens.
- * @returns A micro-optimized profile response object carrying safe identity parameters.
- * @throws {AppError} Retorna `401 Unauthorized` si el payload está corrupto, la cuenta fue borrada o está inactiva.
- */
-const getMetSvc = async (payload: MeRequestDTO | undefined): Promise<MeResponseDTO> => {
-  if (!payload) {
-    throw new AppError("No se pudo obtener la información del usuario", 401);
-  }
-
-  const user = await prisma.user.findUnique({ where: { id: payload.id } });
-
-  if (!user || !user.isActive) {
-    throw new AppError("No se pudo obtener la información del usuario", 401);
-  }
-
-  return {
-    id: user.id,
-    name: user.name,
-    lastname: user.lastname,
-    email: user.email,
-    role: user.role
-  };
-}
+import type { LoginRequestDTO, RefreshTokenRequestDTO, RegisterRequestDTO } from "../dtos/request";
+import type { AuthResponseDTO } from "../dtos/response";
 
 /**
  * Servicio para autenticar a un usuario mediante sus credenciales de correo y contraseña.
- * Comprueba que el usuario exista, esté activo y que la contraseña sea correcta mediante `bcrypt`.
+ * Comprueba que el usuario exista, esté activo y que la contraseña coincida usando `bcrypt`.
  *
  * @param payload - DTO con las credenciales de inicio de sesión (`email` y `password`).
- * @returns Promesa que resuelve a un `AuthResponseDTO` con el par de tokens JWT.
- * @throws {AppError} Lanza un error `401` si el correo no existe, el usuario está inactivo o la contraseña es incorrecta.
- *   Se usa un mensaje genérico `"Credenciales inválidas"` para no dar pistas a posibles atacantes.
+ * @returns Promesa que resuelve a un {@link AuthResponseDTO} con el par de tokens JWT.
+ *
+ * @throws {AppError} Retorna un error `401 Unauthorized` si el correo no existe, la cuenta está inactiva o la contraseña es incorrecta.
+ *
+ * @remarks
+ * Por razones de seguridad y prevención de ataques de enumeración de usuarios,
+ * se utiliza una respuesta genérica `"Credenciales inválidas"` para cualquier tipo de fallo de credencial.
+ *
+ * @example
+ * ```typescript
+ * const auth = await loginSvc({ email: 'user@example.com', password: 'SecretPassword123' });
+ * console.log(auth.access_token);
+ * ```
  */
 const loginSvc = async (payload: LoginRequestDTO): Promise<AuthResponseDTO> => {
 
@@ -57,6 +34,7 @@ const loginSvc = async (payload: LoginRequestDTO): Promise<AuthResponseDTO> => {
   }
 
   const isPasswordCorrect = await bcrypt.compare(payload.password, user.password);
+
   if (!isPasswordCorrect) {
     throw new AppError("Credenciales inválidas", 401);
   }
@@ -66,17 +44,30 @@ const loginSvc = async (payload: LoginRequestDTO): Promise<AuthResponseDTO> => {
 
 /**
  * Servicio para registrar un nuevo usuario en el sistema.
- * Verifica que el correo no esté en uso, descarta el campo `passwordConfirmation`,
- * encripta la contraseña con `bcrypt` y persiste el registro en la base de datos.
- * Tras la creación exitosa, emite automáticamente un par de tokens JWT para que
- * el usuario quede autenticado de inmediato sin necesidad de un login adicional.
+ * Verifica que el correo no esté en uso, descarta `passwordConfirmation`,
+ * encripta la contraseña con `bcrypt` (factor de costo 10) y persiste el registro.
+ * Tras la creación exitosa, emite automáticamente un par de tokens JWT.
  *
- * @param user - DTO con los datos del nuevo usuario (`RegisterRequestDTO`).
- * @returns Promesa que resuelve a un `AuthResponseDTO` con el par de tokens JWT.
- * @throws {AppError} Lanza un error `400` si el correo electrónico ya está registrado.
+ * @param user - DTO con los datos del nuevo usuario ({@link RegisterRequestDTO}).
+ * @returns Promesa que resuelve a un {@link AuthResponseDTO} con el par de tokens JWT generados.
+ *
+ * @throws {AppError} Retorna un error `400 Bad Request` si el correo electrónico ya está registrado.
+ *
+ * @example
+ * ```typescript
+ * const auth = await registerSvc({
+ *   name: 'John',
+ *   lastname: 'Doe',
+ *   email: 'john@example.com',
+ *   password: 'password123',
+ *   passwordConfirmation: 'password123',
+ *   age: 25
+ * });
+ * ```
  */
 const registerSvc = async (user: RegisterRequestDTO): Promise<AuthResponseDTO> => {
   const emailExists = await prisma.user.findUnique({ where: { email: user.email } });
+
   if (emailExists) {
     throw new AppError("El correo electrónico ya está registrado", 400);
   }
@@ -97,16 +88,22 @@ const registerSvc = async (user: RegisterRequestDTO): Promise<AuthResponseDTO> =
  * Implementa la estrategia de **Refresh Token Rotation**: cada invocación consume el
  * refresh token proporcionado y emite un par nuevo, lo que invalida implícitamente el anterior.
  *
- * El proceso es el siguiente:
- * 1. Verifica la firma y vigencia del `refresh_token` usando `JWT_REFRESH_SECRET`.
- * 2. Busca al usuario en la base de datos para confirmar que sigue existiendo y está activo.
- *    (Esto invalida tokens de usuarios inhabilitados después de su emisión).
- * 3. Emite un nuevo par de tokens frescos.
+ * @param payload - DTO con el `refresh_token` a verificar ({@link RefreshTokenRequestDTO}).
+ * @returns Promesa que resuelve a un nuevo {@link AuthResponseDTO} con tokens renovados.
  *
- * @param payload - DTO con el `refresh_token` a verificar (`RefreshTokenRequestDTO`).
- * @returns Promesa que resuelve a un nuevo `AuthResponseDTO` con tokens renovados.
- * @throws {AppError} Lanza un error `401` si el refresh token es inválido o ha expirado.
- * @throws {AppError} Lanza un error `401` si el usuario asociado al token no existe o está inactivo.
+ * @throws {AppError} Retorna un error `401 Unauthorized` si el refresh token es inválido o ha expirado.
+ * @throws {AppError} Retorna un error `401 Unauthorized` si el usuario asociado al token no existe o está inactivo.
+ *
+ * @remarks
+ * El flujo consta de 3 etapas:
+ * 1. Verifica la firma y vigencia del token mediante `jwt.verify`.
+ * 2. Consulta el estado del usuario en PostgreSQL a través de Prisma (`isActive`).
+ * 3. Firma y devuelve una nueva dupla de tokens.
+ *
+ * @example
+ * ```typescript
+ * const newTokens = await refreshTokenSvc({ refresh_token: 'eyJhbGciOiJIUzI1Ni...' });
+ * ```
  */
 const refreshTokenSvc = async (payload: RefreshTokenRequestDTO): Promise<AuthResponseDTO> => {
   let decoded: { sub: number };
@@ -131,13 +128,11 @@ const refreshTokenSvc = async (payload: RefreshTokenRequestDTO): Promise<AuthRes
 
 /**
  * Función auxiliar privada que genera un par de tokens JWT (access + refresh) para un usuario dado.
- * Centraliza la lógica de firma para evitar duplicación (DRY) entre `loginSvc` y `registerSvc`.
+ * Centraliza la firma para mantener coherencia en payloads y vigencias.
  *
- * - **Access Token**: Contiene `sub`, `email` y `role`. Expira en `JWT_EXPIRES_IN` segundos 
- * - **Refresh Token**: Contiene únicamente `sub`. Expira en `JWT_REFRESH_EXPIRES_IN` días.
- *
- * @param user - Objeto con los datos mínimos del usuario necesarios para construir el payload del token.
- * @returns Un `AuthResponseDTO` con los dos tokens firmados y el tiempo de expiración del access token.
+ * @internal
+ * @param user - Objeto con las propiedades básicas del usuario necesarias para construir el payload del JWT.
+ * @returns Estructura {@link AuthResponseDTO} con `access_token`, `refresh_token` y `expires_in`.
  */
 const generateAuthTokens = ({
   id,
@@ -168,4 +163,4 @@ const generateAuthTokens = ({
   };
 };
 
-export { getMetSvc, loginSvc, refreshTokenSvc, registerSvc };
+export { loginSvc, refreshTokenSvc, registerSvc };

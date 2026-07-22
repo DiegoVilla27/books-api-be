@@ -2,6 +2,11 @@ import { BaseQuerySchema } from '@core/types/pagination';
 import sanitizeText from '@core/utils/sanitizeHtml';
 import { z } from 'zod';
 
+/**
+ * Esquema Zod para la validación y transformación de parámetros de consulta paginada (`GET /users`).
+ * Fusiona {@link BaseQuerySchema} agregando filtrado opcional por `role` ('ADMIN' | 'USER')
+ * y transformación estricta de la cadena de texto `isActive` a booleano.
+ */
 const GetUsersQuerySchema = z.object({
   query: BaseQuerySchema.merge(
     z.object({
@@ -29,12 +34,39 @@ const UserByIdSchema = z.object({
 
 /**
  * Esquema para validar solicitudes que contengan un email (`req.body.email`).
+ * Sanea el texto para evitar vulnerabilidades de script entre sitios (XSS).
  */
 const CheckEmailSchema = z.object({
   body: z.object({
     email: z
       .email('El email es inválido')
       .transform((val) => sanitizeText(val)),
+  }).strict(),
+});
+
+/**
+ * Esquema para validar solicitudes de actualización del propio perfil de usuario (`PATCH /users/profile`).
+ * Todos los campos (`name`, `lastname`, `age`) son opcionales y aplican saneamiento HTML.
+ */
+const ProfileUserSchema = z.object({
+  body: z.object({
+    name: z
+      .string()
+      .min(3, 'El nombre debe tener al menos 3 caracteres')
+      .max(50, 'El nombre debe tener como máximo 50 caracteres')
+      .transform((val) => sanitizeText(val))
+      .optional(),
+    lastname: z
+      .string()
+      .min(3, 'El apellido debe tener al menos 3 caracteres')
+      .max(50, 'El apellido debe tener como máximo 50 caracteres')
+      .transform((val) => sanitizeText(val))
+      .optional(),
+    age: z
+      .number()
+      .min(18, 'Debes ser mayor de 18 años')
+      .max(100, 'Debes ser menor de 100 años')
+      .optional(),
   }).strict(),
 });
 
@@ -125,5 +157,6 @@ export {
   UpdateUserSchema,
   UserByIdSchema,
   CheckEmailSchema,
-  GetUsersQuerySchema
+  GetUsersQuerySchema,
+  ProfileUserSchema
 };

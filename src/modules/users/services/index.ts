@@ -3,21 +3,104 @@ import AppError from "@core/errors";
 import type { IPagination } from "@core/types/pagination";
 import { removeDataUndefined } from "@core/utils/removeDataUndefined";
 import bcrypt from "bcrypt";
-import type { CreateUserRequestDTO, UpdateUserRequestDTO } from "../dtos/request";
-import type { UserResponseDTO } from "../dtos/response";
-import type { UsersPaginationQuery } from "../entities";
+import type { CreateUserRequestDTO, ProfileUserRequestDTO, UpdateUserRequestDTO } from "../dtos/request";
+import type { MeResponseDTO, UserResponseDTO } from "../dtos/response";
+import type { RoleUser, UsersPaginationQuery } from "../entities";
 import { toUserResponseDTO, toUserResponseDTOs } from "../mappers";
 
 /**
- * Servicio para obtener un listado resumido e incondicional de todos los usuarios
- * (principalmente para selectores en formularios de creación y edición).
+ * Servicio para actualizar la información de perfil del usuario actualmente autenticado.
  * 
- * @returns Promesa que resuelve a un arreglo de objetos con id, nombre y apellido.
+ * @param payload - DTO con las propiedades opcionales a modificar ({@link ProfileUserRequestDTO}).
+ * @param userId - Identificador único del usuario autenticado (extraído de `req.user.id`).
+ * @returns Promesa que resuelve al {@link UserResponseDTO} del usuario actualizado.
+ * 
+ * @throws {AppError} Retorna `401 Unauthorized` si no se proporciona `userId` o si el usuario no existe/está inactivo.
+ * 
+ * @example
+ * ```typescript
+ * const updated = await profileSvc({ name: 'Jane' }, 1);
+ * ```
+ */
+const profileSvc = async (
+  payload: ProfileUserRequestDTO,
+  userId?: number,
+): Promise<UserResponseDTO> => {
+  if (!userId) {
+    throw new AppError("No se pudo obtener la información del usuario", 401);
+  }
+
+  const userExists = await prisma.user.findUnique({ where: { id: userId } });
+
+  if (!userExists || !userExists.isActive) {
+    throw new AppError("No se pudo obtener la información del usuario", 401);
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: removeDataUndefined(payload),
+    include: { _count: { select: { books: true } } }
+  });
+
+  return toUserResponseDTO(updatedUser);
+}
+
+/**
+ * Servicio para resolver los datos de identidad pública del usuario actual (`GET /users/me`).
+ * Valida la existencia y el estado activo del registro en la base de datos PostgreSQL.
+ * 
+ * @param userId - Identificador único del usuario autenticado.
+ * @returns Promesa que resuelve a un objeto de respuesta {@link MeResponseDTO}.
+ * 
+ * @throws {AppError} Retorna `401 Unauthorized` si la sesión no es válida, o el usuario fue eliminado/inhabilitado.
+ * 
+ * @example
+ * ```typescript
+ * const me = await getMeSvc(1);
+ * ```
+ */
+const getMeSvc = async (userId?: number): Promise<MeResponseDTO> => {
+  if (!userId) {
+    throw new AppError("No se pudo obtener la información del usuario", 401);
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+
+  if (!user || !user.isActive) {
+    throw new AppError("No se pudo obtener la información del usuario", 401);
+  }
+
+  return {
+    id: user.id,
+    name: user.name,
+    lastname: user.lastname,
+    email: user.email,
+    role: user.role
+  };
+}
+
+/**
+ * Servicio para obtener un listado resumido de usuarios (lookup) para selectores en clientes.
+ * Filtra los usuarios con rol `'ADMIN'` si el solicitante no posee el rol `'ADMIN'`.
+ * 
+ * @param userRole - Rol del usuario autenticado que realiza la solicitud.
+ * @returns Promesa que resuelve a un arreglo de objetos conteniendo `id`, `name` y `lastname`.
+ * 
+ * @throws {AppError} Retorna `401 Unauthorized` si no se puede determinar el rol del usuario.
+ * 
+ * @example
+ * ```typescript
+ * const lookupList = await getUsersLookupSvc('ADMIN');
+ * ```
  */
 const getUsersLookupSvc = async (
-  requestingUser?: { role: string }
+  userRole?: RoleUser
 ): Promise<Pick<UserResponseDTO, 'id' | 'name' | 'lastname'>[]> => {
-  const isAdmin = requestingUser?.role === 'ADMIN';
+  if (!userRole) {
+    throw new AppError("No se pudo obtener la información del usuario", 401);
+  }
+
+  const isAdmin = userRole === 'ADMIN';
 
   return await prisma.user.findMany({
     where: isAdmin ? {} : { role: { not: 'ADMIN' } },
@@ -33,13 +116,16 @@ const getUsersLookupSvc = async (
 }
 
 /**
- * Servicio para obtener una lista paginada de todos los usuarios.
- * Aplica reglas de filtrado según el rol del usuario que realiza la consulta.
+ * Servicio para obtener una lista paginada de todos los usuarios registrados.
+ * Aplica reglas de filtrado transaccional en Prisma por búsqueda, rol y estado activo.
  * 
- * @param page - Número de página actual.
- * @param limit - Cantidad máxima de registros por página.
- * @param requestingRole - Rol del usuario que realiza la petición ('ADMIN' o 'USER').
- * @returns Promesa que resuelve a un objeto paginado de tipo `UserResponseDTO`.
+ * @param filters - Objeto con los parámetros de paginación y filtros ({@link UsersPaginationQuery}).
+ * @returns Promesa que resuelve a un objeto paginado `IPagination<UserResponseDTO>`.
+ * 
+ * @example
+ * ```typescript
+ * const users = await getAllUsersSvc({ page: 1, limit: 10, role: 'USER', isActive: true });
+ * ```
  */
 const getAllUsersSvc = async (
   filters: UsersPaginationQuery
@@ -104,13 +190,37 @@ const getAllUsersSvc = async (
 
 /**
  * Servicio para obtener un usuario específico por su ID único.
- * Carga el recuento de libros asociados y restringe el acceso de usuarios estándar a perfiles administradores.
+ * Carga el recuento de libros asociados y valida que un usuario normal solo consulte su propio perfil.
  * 
  * @param id - Identificador único del usuario a consultar.
- * @param requestingRole - Rol del usuario que realiza la consulta.
- * @returns Promesa que resuelve a un `UserResponseDTO` si el usuario existe y está autorizado, o `null`.
+ * @param userAuth - Objeto con el id y rol del usuario autenticado.
+ * @returns Promesa que resuelve a un {@link UserResponseDTO}.
+ * 
+ * @throws {AppError} Retorna `401 Unauthorized` si no existe `userAuth`.
+ * @throws {AppError} Retorna `403 Forbidden` si el usuario no es ADMIN ni consulta su propio ID.
+ * @throws {AppError} Retorna `404 Not Found` si el usuario no existe.
+ * 
+ * @example
+ * ```typescript
+ * const user = await getUserByIdSvc(1, { id: 1, role: 'USER' });
+ * ```
  */
-const getUserByIdSvc = async (id: number): Promise<UserResponseDTO> => {
+const getUserByIdSvc = async (
+  id: number,
+  userAuth?: Pick<UserResponseDTO, 'id' | 'role'>
+): Promise<UserResponseDTO> => {
+  if (!userAuth) {
+    throw new AppError("No se pudo obtener la información del usuario", 401);
+  }
+
+  const isAdmin = userAuth.role === 'ADMIN';
+  const isSelf = userAuth.id === id;
+
+  // 🔴 1. Regla de Autorización: Si no es ADMIN ni es él mismo -> 403 Forbidden
+  if (!isAdmin && !isSelf) {
+    throw new AppError("No tienes permisos para acceder al perfil de este usuario", 403);
+  }
+
   const userFind = await prisma.user.findUnique({
     where: { id },
     include: { _count: { select: { books: true } } }
@@ -128,9 +238,23 @@ const getUserByIdSvc = async (id: number): Promise<UserResponseDTO> => {
  * Comprueba que el correo electrónico no esté registrado previamente.
  * Encripta la contraseña utilizando `bcrypt` antes de guardarla.
  * 
- * @param user - DTO con los datos del usuario requeridos en la creación.
- * @returns Promesa que resuelve a los datos del usuario creado en formato `UserResponseDTO`.
- * @throws AppError - Lanza un error 400 si el email del usuario ya está en uso.
+ * @param user - DTO con los datos del usuario requeridos en la creación ({@link CreateUserRequestDTO}).
+ * @returns Promesa que resuelve a los datos del usuario creado en formato {@link UserResponseDTO}.
+ * 
+ * @throws {AppError} Retorna `400 Bad Request` si el email del usuario ya está en uso.
+ * 
+ * @example
+ * ```typescript
+ * const newUser = await createUserSvc({
+ *   name: 'Carlos',
+ *   lastname: 'Pérez',
+ *   email: 'carlos@example.com',
+ *   password: 'secretPassword123',
+ *   age: 30,
+ *   role: 'USER',
+ *   isActive: true
+ * });
+ * ```
  */
 const createUserSvc = async (user: CreateUserRequestDTO): Promise<UserResponseDTO> => {
   const emailExists = await prisma.user.findUnique({ where: { email: user.email } });
@@ -155,8 +279,14 @@ const createUserSvc = async (user: CreateUserRequestDTO): Promise<UserResponseDT
  * 
  * @param id - Identificador único del usuario a actualizar.
  * @param user - DTO que contiene de manera opcional las propiedades que se desean modificar.
- * @returns Promesa que devuelve la representación del usuario actualizado en `UserResponseDTO`.
- * @throws AppError - Si el ID especificado no pertenece a ningún usuario (404).
+ * @returns Promesa que devuelve la representación del usuario actualizado en {@link UserResponseDTO}.
+ * 
+ * @throws {AppError} Retorna `404 Not Found` si el ID especificado no pertenece a ningún usuario.
+ * 
+ * @example
+ * ```typescript
+ * const updated = await updateUserSvc(1, { name: 'Carlos Mario' });
+ * ```
  */
 const updateUserSvc = async (id: number, user: UpdateUserRequestDTO): Promise<UserResponseDTO> => {
   // Verificar existencia antes del update para evitar errores de Prisma
@@ -182,8 +312,14 @@ const updateUserSvc = async (id: number, user: UpdateUserRequestDTO): Promise<Us
  * Establece el atributo `isActive` a `false`.
  * 
  * @param id - Identificador único del usuario a inhabilitar.
- * @returns Promesa con los datos formateados del usuario inhabilitado (`UserResponseDTO`).
- * @throws AppError - Si el ID especificado no se encuentra (404).
+ * @returns Promesa con los datos formateados del usuario inhabilitado ({@link UserResponseDTO}).
+ * 
+ * @throws {AppError} Retorna `404 Not Found` si el ID especificado no se encuentra.
+ * 
+ * @example
+ * ```typescript
+ * const disabled = await deleteUserSvc(1);
+ * ```
  */
 const deleteUserSvc = async (id: number): Promise<UserResponseDTO> => {
   // Verificar existencia antes del update para evitar errores de Prisma
@@ -207,11 +343,22 @@ const deleteUserSvc = async (id: number): Promise<UserResponseDTO> => {
  * 
  * @param email - Correo electrónico a consultar.
  * @returns Promesa que resuelve a `true` si el email existe, y `false` si no existe.
+ * 
+ * @example
+ * ```typescript
+ * const isTaken = await checkEmailSvc('test@example.com');
+ * ```
  */
 const checkEmailSvc = async (email: string): Promise<boolean> => {
   const emailExists = await prisma.user.findUnique({ where: { email } });
   return !!emailExists;
 }
 
-export { checkEmailSvc, createUserSvc, deleteUserSvc, getAllUsersSvc, getUserByIdSvc, getUsersLookupSvc, updateUserSvc };
+export {
+  checkEmailSvc,
+  createUserSvc,
+  deleteUserSvc,
+  getAllUsersSvc, getMeSvc, getUserByIdSvc,
+  getUsersLookupSvc, profileSvc, updateUserSvc
+};
 

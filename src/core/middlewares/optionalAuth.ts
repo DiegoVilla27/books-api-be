@@ -1,6 +1,7 @@
 import ENVS from "@core/environments";
 import type { NextFunction, Request, Response } from "express";
 import jwt from 'jsonwebtoken';
+import type { RoleUser } from "@modules/users/entities";
 
 /**
  * Middleware function that optionally authenticates HTTP requests using JWT Bearer tokens.
@@ -35,17 +36,11 @@ export const optionalAuth = (req: Request, _: Response, next: NextFunction): voi
       try {
         const decoded = jwt.verify(token, ENVS.JWT_ACCESS_SECRET) as unknown as {
           sub: number;
-          name: string;
-          lastname: string;
-          email: string;
-          role: string;
+          role: RoleUser;
         };
 
         req.user = {
           id: decoded.sub,
-          name: decoded.name,
-          lastname: decoded.lastname,
-          email: decoded.email,
           role: decoded.role
         };
       } catch (error) {
