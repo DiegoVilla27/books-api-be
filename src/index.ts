@@ -9,12 +9,13 @@ import globalErrorHandler from '@core/middlewares/errorHandler';
 import ENVS from '@core/environments';
 
 /**
- * Main Express application instance configured with security headers, CORS, rate limiting, and core routes.
+ * Instancia principal del servidor de aplicaciones Express.
+ * Configurada con cabeceras de seguridad Helmet, restricciones de CORS, limitador de tasa por IP y enrutamiento centralizado.
  */
 const app = express();
 
 /**
- * HTTP server listening port bound to the `PORT` environment configuration variable.
+ * Puerto de escucha del servidor HTTP definido en la configuración unificada de entorno (`ENVS.PORT`).
  */
 const PORT = ENVS.PORT;
 
@@ -23,7 +24,7 @@ app.use(helmet()); // Middleware para asegurar la app de diferentes ataques
 app.use(express.json({ limit: '10kb' })); // Middleware para entender formato json en request and response y limitar tamaño
 
 /** 
- * Allowed CORS origins whitelist permitted to cross-communicate with this API service.
+ * Lista blanca de orígenes permitidos para el intercambio de recursos de origen cruzado (CORS).
  */
 const allowedOrigins = ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:4200'];
 
@@ -47,7 +48,7 @@ app.use(rateLimit({
   message: {
     message: 'Demasiadas peticiones desde esta IP. Por favor intenta de nuevo en 15 minutos.'
   },
-  skip: (_) => ENVS.NODE_ENV === 'dev',
+  skip: (_) => ENVS.NODE_ENV === 'dev', // Skip rate limiting in development
   standardHeaders: true, // Devuelve información de límite en las cabeceras `RateLimit-*`
   legacyHeaders: false, // Deshabilita las cabeceras antiguas `X-RateLimit-*`
 }));

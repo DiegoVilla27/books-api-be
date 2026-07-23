@@ -17,10 +17,10 @@ import type * as Prisma from "./prismaNamespace.ts"
 
 const config: runtime.GetPrismaClientConfig = {
   "previewFeatures": [],
-  "clientVersion": "7.8.0",
-  "engineVersion": "3c6e192761c0362d496ed980de936e2f3cebcd3a",
+  "clientVersion": "7.9.0",
+  "engineVersion": "e922089b7d7502aff4249d5da3420f6fa55fc6ad",
   "activeProvider": "postgresql",
-  "inlineSchema": "// This is your Prisma schema file,\n// learn more about it in the docs: https://pris.ly/d/prisma-schema\n\n// Get a free hosted Postgres database in seconds: `npx create-db`\n\ngenerator client {\n  provider = \"prisma-client\"\n  output   = \"../src/core/database/postgres/generated/prisma\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n}\n\nmodel Book {\n  id        Int       @id @default(autoincrement())\n  title     String\n  author    String\n  createdAt DateTime  @default(now())\n  updatedAt DateTime  @default(now()) @updatedAt\n  deletedAt DateTime?\n  userId    Int\n  user      User      @relation(fields: [userId], references: [id])\n\n  @@index([userId]) // Optimiza los Joins e incluye búsquedas por \"Todos los libros de un usuario\"\n  @@index([title]) // Filtro rápido por título parcial o completo\n  @@index([author]) // Filtro rápido por autor parcial o completo\n}\n\nenum Role {\n  USER\n  ADMIN\n}\n\nmodel User {\n  id        Int       @id @default(autoincrement())\n  name      String\n  lastname  String\n  email     String    @unique\n  password  String\n  age       Int\n  role      Role      @default(USER)\n  isActive  Boolean   @default(true)\n  books     Book[]\n  createdAt DateTime  @default(now())\n  updatedAt DateTime  @default(now()) @updatedAt\n  deletedAt DateTime?\n\n  @@index([name])\n  @@index([lastname]) // Optimiza la búsqueda por apellido en tu filtro 'OR'\n  @@index([role, isActive]) // ¡Índice compuesto senior! Optimiza filtros combinados de backoffice\n}\n",
+  "inlineSchema": "// This is your Prisma schema file,\n// learn more about it in the docs: https://pris.ly/d/prisma-schema\n\n// Get a free hosted Postgres database in seconds: `npx create-db`\n\ngenerator client {\n  provider = \"prisma-client\"\n  output   = \"../src/core/databases/postgres/generated/prisma\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n}\n\nmodel Book {\n  id        Int       @id @default(autoincrement())\n  title     String\n  author    String\n  createdAt DateTime  @default(now())\n  updatedAt DateTime  @default(now()) @updatedAt\n  deletedAt DateTime?\n  userId    Int\n  user      User      @relation(fields: [userId], references: [id])\n\n  @@index([userId]) // Optimiza los Joins e incluye búsquedas por \"Todos los libros de un usuario\"\n  @@index([title]) // Filtro rápido por título parcial o completo\n  @@index([author]) // Filtro rápido por autor parcial o completo\n}\n\nenum Role {\n  USER\n  ADMIN\n}\n\nmodel User {\n  id        Int       @id @default(autoincrement())\n  name      String\n  lastname  String\n  email     String    @unique\n  password  String\n  age       Int\n  role      Role      @default(USER)\n  isActive  Boolean   @default(true)\n  books     Book[]\n  createdAt DateTime  @default(now())\n  updatedAt DateTime  @default(now()) @updatedAt\n  deletedAt DateTime?\n\n  @@index([name])\n  @@index([lastname]) // Optimiza la búsqueda por apellido en tu filtro 'OR'\n  @@index([role, isActive]) // ¡Índice compuesto senior! Optimiza filtros combinados de backoffice\n}\n",
   "runtimeDataModel": {
     "models": {},
     "enums": {},
@@ -82,7 +82,7 @@ export interface PrismaClientConstructor {
     LogOpts extends LogOptions<Options> = LogOptions<Options>,
     OmitOpts extends Prisma.PrismaClientOptions['omit'] = Options extends { omit: infer U } ? U : Prisma.PrismaClientOptions['omit'],
     ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs
-  >(options: Prisma.Subset<Options, Prisma.PrismaClientOptions> ): PrismaClient<LogOpts, OmitOpts, ExtArgs>
+  >(options: Prisma.PrismaClientConstructorArgs<Options>): PrismaClient<LogOpts, OmitOpts, ExtArgs>
 }
 
 /**
@@ -103,7 +103,7 @@ export interface PrismaClientConstructor {
 
 export interface PrismaClient<
   in LogOpts extends Prisma.LogLevel = never,
-  in out OmitOpts extends Prisma.PrismaClientOptions['omit'] = undefined,
+  in out OmitOpts extends Prisma.PrismaClientOptions['omit'] = Prisma.PrismaClientOptions['omit'],
   in out ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs
 > {
   [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['other'] }
