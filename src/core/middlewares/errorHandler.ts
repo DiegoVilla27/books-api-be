@@ -74,16 +74,6 @@ const handlePrismaUniqueConstraintError = () => {
 };
 
 /**
- * Traduce errores de conversión de tipos de Mongoose (Cast Error) a un formato amigable.
- * 
- * @param err - Objeto de error original de Mongoose.
- * @returns Instancia mapeada de `AppError` con estado 400.
- */
-const handleMongooseCastError = (err: any) => {
-  return new AppError(`Valor inválido "${err.value}" para el campo "${err.path}".`, 400);
-};
-
-/**
  * Middleware centralizado de Express para la gestión de errores.
  * Captura excepciones no controladas y errores controlados de negocio, los traduce
  * al formato unificado de la aplicación y responde al cliente según el entorno actual.
@@ -101,10 +91,9 @@ const globalErrorHandler = (
 ): void => {
   let error = err;
 
-  // 1. Traducir primero los errores conocidos (Zod, Prisma, Mongoose)
+  // 1. Traducir primero los errores conocidos (Zod, Prisma)
   if (err instanceof ZodError) error = handleZodError(err);
   if (err.code === 'P2002') error = handlePrismaUniqueConstraintError();
-  if (err.name === 'CastError') error = handleMongooseCastError(error);
 
   // 2. Garantizar valores de estado por defecto
   error.statusCode = error.statusCode || 500;
